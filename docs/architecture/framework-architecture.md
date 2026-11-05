@@ -1,6 +1,6 @@
 # Arquitectura del Framework — Restful-Booker API
 
-**Versión 2.1 · 2026-11-05 · Aprobado** (v2.1: resultados de la verificación de la fase 0)
+**Versión 2.2 · 2026-11-05 · Aprobado** (v2.1: resultados de la verificación de la fase 0 · v2.2: capas HTTP, API Objects y Screenplay implementadas; ADR-20 y ADR-21)
 Estrategia: [`test-strategy.md`](../strategy/test-strategy.md) · Requisitos: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Defectos: [`known-defects.md`](../known-defects.md)
 
 ## 1. Capas y responsabilidades
@@ -59,8 +59,9 @@ Escenario: Actualizar una reserva sin token es rechazado
 ```
 src/main/java/com/credibanco/qa/restfulbooker/
 ├── config/      EnvironmentConfig, ConfigResolver, ConfigurationException
-├── http/        SpecFactory, JsonMapper, TokenCookieFilter, MaskedAllureFilter, SensitiveDataMasker
-├── api/         AuthApi, BookingApi
+├── http/        SpecFactory, JsonMapper, TokenCookieFilter, MaskedAllureFilter, SensitiveDataMasker, MaskingOutputStream
+├── reporting/   AllureReporter (steps y adjuntos solo con un escenario en curso)
+├── api/         BaseApi, AuthApi, BookingApi
 ├── model/       Booking, BookingDates, BookingResponse, AuthRequest, AuthResponse
 ├── data/        BookingDataFactory, UniqueMarker
 ├── screenplay/  core/ (Actor, Ability, Performable, Question, PreconditionFailedException)
@@ -91,10 +92,13 @@ src/test/resources/
 | `cucumber-bom` → `cucumber-java`, `cucumber-junit-platform-engine`, `cucumber-picocontainer` | 7.34.9 | 0 | BDD sobre JUnit Platform; contexto por escenario |
 | `allure-bom` → `allure-cucumber7-jvm` | 2.35.5 | 0 | **Único** adaptador de Allure |
 | `rest-assured`, `json-schema-validator` | 5.5.7 | 1 | HTTP y contrato |
-| `jackson-databind`, `jackson-datatype-jsr310`, `lombok` (`provided`), `datafaker` | Se fijan en la fase 1 (con al menos 2 semanas de publicadas) | 1 | Modelos y datos |
+| `jackson-bom` → `jackson-databind`, `jackson-datatype-jsr310` · `lombok` (`provided`, procesador explícito) · `datafaker` | 2.22.4 · 1.18.48 · 2.7.0 | 1 | Modelos y datos |
+| `allure-java-commons` (`compile`, versión del `allure-bom`) | 2.35.5 | 1 | Steps y adjuntos enmascarados desde `src/main` (ADR-05, ADR-06) |
+| `slf4j-simple` (`test`, nivel `warn`) | 2.0.17 | 1 | Proveedor SLF4J para los logs internos de Allure: sus errores quedan visibles |
+| Fijadas por convergencia | `jsr305` 3.0.2 · `libphonenumber` 9.0.33 | 1 | Conflictos transitivos de `json-schema-validator` (Enforcer) |
 | **Plugins:** compiler 3.16.0 · surefire 3.6.0 · resources 3.5.0 · clean 3.5.0 · enforcer 3.6.3 · allure-maven 3.1.0 · Maven Wrapper (Maven 3.9.14) | | 0 | Build reproducible |
 
-**Excluidas a propósito:** `allure-junit5` (duplicaría los escenarios), `aspectjweaver` (ADR-06), `allure-rest-assured` (ADR-05) y cualquier librería de logging (ADR-07).
+**Excluidas a propósito:** `allure-junit5` (duplicaría los escenarios), `aspectjweaver` (ADR-06), `allure-rest-assured` (ADR-05) y cualquier librería de logging para el código del framework (ADR-07; `slf4j-simple` solo atiende a Allure).
 
 ## 5. Ciclo de ejecución
 
@@ -113,10 +117,10 @@ src/test/resources/
 | Tema | Diseño |
 |---|---|
 | Configuración | Precedencia `-D` > `RB_*` > `<env>.properties` > `default.properties`; `-Denv=dev\|qa`; URL `https` validada al cargar; credenciales `${RB_USERNAME}`/`${RB_PASSWORD}` validadas **al primer uso** |
-| Autenticación | Task `Authenticate` → token en `UseAnAuthToken` (exige `token`; un 200 con `reason` falla, KD-01). `CallTheApi` usa `SpecFactory.authenticated(token)` (spec nueva + `TokenCookieFilter`). La limpieza usa su propio actor |
+| Autenticación | Task `Authenticate` → token en `UseAnAuthToken` (exige `token`; un 200 con `reason` falla, KD-01). `CallTheApi` usa `SpecFactory.authenticated(token)` (spec nueva + `TokenCookieFilter`, que envía la **cabecera** `Cookie: token=…`, ADR-20). La limpieza usa su propio actor |
 | Datos | `BookingDataFactory` (Datafaker, semilla por escenario); `firstname` único; serialización `NON_NULL`; `InvalidBookingPayload` solo en `src/test` |
 | Excepciones (unchecked) | `AssertionError` → failed · `PreconditionFailedException` / `InfrastructureException` / otras → broken. `ConfigurationException` → Test Defect. Nadie silencia excepciones |
-| Logs | Request/response enmascarados como adjuntos de Allure del paso · `log().ifValidationFails()` por spec, con `Cookie`/`Authorization` en lista negra · `System.Logger` del JDK para el framework |
+| Logs | Request/response enmascarados como adjuntos de Allure del paso · `log().ifValidationFails()` por spec, con `Cookie`/`Set-Cookie`/`Authorization` en lista negra y escrito a través de `MaskingOutputStream`, que enmascara `password`/`token` de los bodies línea a línea (ADR-20) · `System.Logger` del JDK para el framework |
 | Paralelismo seguro | Sin escrituras en `RestAssured.*`; specs inmutables; actor, `Faker` y tracker por escenario. Compartidos e inmutables: `EnvironmentConfig`, `JsonMapper` |
 
 ## 7. Decisiones de arquitectura (ADR)
@@ -142,6 +146,8 @@ src/test/resources/
 | 17 | Jobs separados por `cucumber.filter.tags` y perfil `known-defects` limitado a la suite, con directorios propios | Filtrado nativo de Cucumber, independiente de `groups` de Surefire |
 | 18 | Maven Wrapper (Maven 3.9.14) | Build reproducible para evaluadores y CI; 3 archivos más |
 | 19 | Gherkin en español (`# language: es`), código en inglés | Legible para la exposición; dos idiomas en el repositorio |
+| 20 | El token viaja como **cabecera** `Cookie: token=…` (no como cookie de Rest Assured) y el log condicional se escribe a través de `MaskingOutputStream` | Verificado en integración: Rest Assured imprimía las cookies y los bodies (contraseña de `/auth`) sin poder ocultarlos. En la red la petición es idéntica (RC-05) |
+| 21 | `BaseApi` como base de los API Objects y `AllureReporter` que solo reporta con un escenario en curso | `BaseApi` usa las specs que `SpecFactory` construye (no la duplica). Sin el guard, Allure registra errores fuera de un escenario (tests de Jupiter) |
 
 ## 8. Verificación de la fase 0 (ejecución real con escenarios de prueba, sin HTTP)
 
