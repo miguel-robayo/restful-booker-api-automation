@@ -126,6 +126,11 @@
             <version>${lombok.version}</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Allure API for steps and masked attachments from src/main (ADR-05, ADR-06); version from allure-bom -->
+        <dependency>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-java-commons</artifactId>
+        </dependency>
         <!-- Maintained JavaFaker fork (D-04) -->
         <dependency>
             <groupId>net.datafaker</groupId>
