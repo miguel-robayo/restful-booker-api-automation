@@ -21,7 +21,8 @@ JDK 21 is mandatory (Maven Enforcer fails otherwise). Use the wrapper.
 ./mvnw clean test -Denv=dev                 # select environment (dev|qa, default qa)
 ./mvnw test -Pknown-defects                 # separate job: only @known-defect scenarios, own result dirs
 ./mvnw test -Dtest=ConfigResolverTest       # single JUnit test class
-./mvnw test -Dtest=ApiScenariosSuite -Dcucumber.filter.tags="@TC-NEG-01"   # single Cucumber scenario (runner arrives in phase 1)
+./mvnw test -Dtest=ApiScenariosSuite -Dcucumber.filter.tags="@TC-NEG-01"   # scenarios of one TC (needs RB_USERNAME/RB_PASSWORD)
+./mvnw test -Dtest=ApiScenariosSuite -Dcucumber.execution.dry-run=true      # detect undefined/ambiguous steps without calling the API
 ./mvnw allure:serve                         # open report for target/allure-results
 ./mvnw allure:serve -Pknown-defects         # open report for the known-defects job
 ```
@@ -31,7 +32,7 @@ Credentials come only from environment variables `RB_USERNAME` / `RB_PASSWORD` (
 ## Architecture rules (do not break)
 
 - Features → Step Definitions → Actor → Abilities → Tasks (writes) / Questions (reads) → API Objects → Rest Assured.
-- `Dado` = `actor.wasAbleTo(...)` (precondition, 2xx required); `Cuando` = `attemptsTo` (write) or `asksFor` + `remember` (read); `Entonces` = `Expect` / `ResponseSpecs` on stored results — **no HTTP in Then steps**.
+- `Dado` = prepare context and initial state (`wasAbleTo`, precondition, 2xx required); `Cuando` = **exactly one** action (`attemptsTo` or `asksFor`) that may **declare** post-action evidence via `observations.after(...)`; the `@AfterStep` hook runs those reads right after it (ADR-22); `Entonces` = `Expect` / `ResponseSpecs` on stored evidence — **no HTTP in Then steps**.
 - Step definitions are thin adapters: no Rest Assured, no API Objects, no business rules.
 - Only API Objects build HTTP requests; no generic HTTP "Interactions" layer.
 - Never write to static `RestAssured.*`; build a new spec per request. No mutable static state; one `ScenarioContext` per scenario (PicoContainer).
@@ -39,6 +40,14 @@ Credentials come only from environment variables `RB_USERNAME` / `RB_PASSWORD` (
 - REQ/MON is decided by the requirement, never by what the API currently does. `@known-defect` = REQ failing on an open KD (separate job); `@kd-monitor` = MON (main job).
 - Assertion message prefixes drive Allure categories: `KD-xx:`, `SLA:`, `PRECONDITION:`, `INFRA:`.
 - Single Allure adapter: `allure-cucumber7-jvm`. Do not add `allure-junit5`.
+
+## BDD writing rules (checked by `FeatureConventionsTest`)
+
+- Business language only in features (titles, steps, comments): no token, HTTP, JSON, schema, GPath, SLA, Builder, headers or status codes. Technical notes live in `docs/strategy/test-strategy.md` §7.
+- One actor, **Miguel**, introduced in the first `Dado` ("Dado que Miguel …"); later steps omit the subject.
+- Exactly one `Cuando` per scenario (a `Y` after `Cuando` counts as another action). Split independent behaviors into separate scenarios that keep the same `@TC-*` tag.
+- Every scenario keeps `@TC-*` and `@esc-*` tags. Vocabulary: "iniciar sesión/sesión" = auth token, "cancelar" = DELETE (booking stops existing).
+- Java step methods: imperative verb for `Dado`/`Cuando`, `verify…` for `Entonces`; expected status codes come from `HttpStatus`.
 
 ## Working agreement
 

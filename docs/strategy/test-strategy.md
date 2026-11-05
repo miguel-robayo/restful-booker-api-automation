@@ -1,8 +1,8 @@
 # Estrategia de Pruebas — Restful-Booker API
 
-**Versión 3.4 · 2026-11-05 · Aprobado · Referencia para la implementación**
+**Versión 3.5 · 2026-11-05 · Aprobado · Referencia para la implementación**
 Requisitos y trazabilidad: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Divergencias: [`known-defects.md`](../known-defects.md) · Arquitectura: [`framework-architecture.md`](../architecture/framework-architecture.md)
-*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21). v3.3: categoría Performance (SLA) y resultados de la verificación de la fase 0. v3.4: sintaxis GPath de D-01 verificada.*
+*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21). v3.3: categoría Performance (SLA) y resultados de la verificación de la fase 0. v3.4: sintaxis GPath de D-01 verificada. v3.5: convenciones BDD (§3.1), fase explícita de observación posterior (ADR-22), TC-AUTH-02 en dos escenarios y verificaciones de la fase de escenarios.*
 
 ## 1. Objetivo y alcance
 
@@ -16,15 +16,16 @@ Verificar de forma automatizada, independiente y reproducible los requisitos de 
 
 | Capa | Responsabilidad | Regla |
 |---|---|---|
-| Features (Gherkin) | Comportamiento esperado de cada escenario | Sin datos técnicos ni JSON |
-| Step Definitions | Adaptadores delgados hacia el Actor o `Expect` | Sin HTTP ni reglas de negocio |
+| Features (Gherkin) | Comportamiento esperado en lenguaje de negocio (§3.1) | Sin términos técnicos ni datos técnicos |
+| Step Definitions | Adaptadores delgados hacia el Actor o `Expect` | Sin HTTP directo ni reglas de negocio |
+| Observación posterior (`PostActionObservations` + `@AfterStep`) | Lecturas de evidencia declaradas por el `Cuando` | Solo lecturas; sin aserciones |
 | Screenplay: `Actor`, *Abilities*, *Tasks* (escrituras), *Questions* (lecturas) | Intención de negocio | Sin aserciones |
 | API Objects (auth, booking) | Endpoint, método y parámetros | Sin lógica ni aserciones |
 | `Expect` / `ResponseSpecs` | Aserciones sobre resultados almacenados | Sin peticiones HTTP |
 | Hooks de Cucumber + `ScenarioContext` | Ciclo de vida por escenario: actor, limpieza, verificación del entorno | Único mecanismo; sin estado estático |
 | JUnit 5 | Tests técnicos del framework (FW-01, FW-02) | No usan el Actor |
 
-**Regla de pasos:** `Dado` → `wasAbleTo` (precondición) · `Cuando` → `attemptsTo` (escritura) o `asksFor` (consulta, que se ejecuta y almacena en ese momento) · `Entonces` → `Expect`/`ResponseSpecs` sobre lo almacenado, **sin HTTP**.
+**Regla de pasos (ADR-13, ADR-22):** `Dado` → prepara el contexto y obtiene el estado inicial · `Cuando` → **exactamente una** acción (`attemptsTo` o `asksFor`), que además **declara** la evidencia posterior que necesita · **observación posterior** → el hook `@AfterStep` ejecuta esas lecturas justo después del `Cuando`, visibles en Allure · `Entonces` → `Expect`/`ResponseSpecs` sobre la evidencia almacenada, **sin HTTP**.
 
 ## 3. Enfoque de pruebas
 
@@ -45,6 +46,21 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 - **Seguridad:** control de acceso con verificación del estado (TC-NEG-01/02/04), auth sin falsos positivos (TC-AUTH-01/03), secretos enmascarados (FW-01), URL `https://` obligatoria (FW-02).
 - **Rendimiento (D-11):** el SLA es una **aserción de requisito no funcional** con umbral configurable (2000 ms por defecto) y **sin reintentos**. Se identifica con el prefijo `SLA:` y la etiqueta `performance`. Se mide del lado del cliente, por eso se reporta el tiempo real.
 
+### 3.1 Redacción BDD y fases de un escenario
+
+| ID | Convención | Verificación automática |
+|---|---|---|
+| C-1 | **Fases:** `Dado` prepara el contexto y el estado inicial · `Cuando` ejecuta **solo** la acción principal y declara la evidencia posterior · **observación posterior** (`@AfterStep`, visible en Allure) · `Entonces` valida la evidencia sin HTTP (ADR-13, ADR-22) | `ArchitectureRulesTest`: un `Cuando` = exactamente una acción HTTP; un `Entonces` = ninguna |
+| C-2 | Los códigos HTTP no aparecen en el Gherkin: son constantes con nombre en Java (`HttpStatus`). Los valores esperados no cambian | `FeatureConventionsTest`: ningún código de 3 cifras |
+| C-3 | Lenguaje de negocio: sin token, HTTP, JSON, schema, GPath, SLA, Builder, cabeceras… Las notas técnicas de cada escenario viven en esta estrategia (§7, "Notas técnicas") | `FeatureConventionsTest` (títulos, pasos y comentarios) |
+| C-4 | Un único actor, **Miguel**, presentado en el primer `Dado`; después se omite el sujeto | `FeatureConventionsTest` |
+| C-5 | Métodos Java: verbo imperativo para `Dado`/`Cuando` (`registerBooking`) y `verify…` para `Entonces` | Revisión |
+| C-6 | Un único `Cuando` por escenario (un `Y` después del `Cuando` también es acción) y etiquetas `@TC-*` + `@esc-*` en todos | `FeatureConventionsTest` |
+
+**Vocabulario de negocio ↔ implementación** (documentado para no inventar reglas): "iniciar sesión" = obtener el token de `POST /auth`; "sesión" = ese token; "cancelar" = `DELETE`, que **elimina** la reserva (no existe un estado "cancelada"), por eso el resultado se expresa como "deja de estar disponible"; "credenciales de acceso válidas" = las configuradas (no hay registro de usuarios); "valor de referencia" = `query.price.threshold`; "tiempo máximo acordado" = `sla.booking.get.ms`; "formato y codificación acordados" = `Content-Type: application/json; charset=utf-8`.
+
+**Por qué existe la observación posterior:** un escenario negativo necesita leer la reserva **después** de la acción para probar que quedó intacta. Un `Y` después del `Cuando` sería otra acción; leer dentro del `Cuando` escondería una segunda operación; leer en el `Entonces` rompería ADR-13; no leer debilitaría la comprobación. La observación declarada por el `Cuando` y ejecutada por el hook es la única opción que respeta las cuatro reglas.
+
 ## 4. Datos, autenticación y limpieza
 
 | Tema | Estrategia |
@@ -55,7 +71,7 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 | Limpieza | La Task de creación registra cada ID en el contexto del escenario **antes** de cualquier aserción; el hook `@After` de Cucumber lo borra, pase o falle el escenario. Usa su propio token |
 | Propiedad (D-12) | Antes de borrar se hace un `GET`: si da 404, no hay nada que hacer; si el `firstname` coincide, se borra; si no coincide (el ID fue reutilizado, H-03), **no se borra** |
 | Limpieza pendiente (D-08) | No altera el resultado funcional ni genera un resultado de test. Es visible con: un step *broken* y un adjunto en el test afectado; `target/cleanup-pending.json`; un contador en el panel Environment de Allure; un resumen en la consola. **Solo registra `bookingid`, el marcador sintético y el motivo; nunca tokens ni credenciales** |
-| Registro por escenario | Cada escenario escribe su propio archivo en `target/cleanup/` (IDs creados y pendientes). El hook `@AfterAll` lo consolida: no hay estado compartido en memoria entre escenarios en paralelo |
+| Registro por escenario | Cada escenario escribe su propio archivo en `target/cleanup/<directorio de resultados>/` (IDs creados y pendientes; un directorio por job). El hook `@AfterAll` lo consolida: no hay estado compartido en memoria entre escenarios en paralelo |
 | Si la JVM muere | Los archivos de `target/cleanup/` conservan los IDs; el reinicio de la API elimina los restos |
 
 ## 5. Ejecución
@@ -103,6 +119,19 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 | `booking_validation.feature` | TC-CON-01, TC-CON-02, TC-CON-03, TC-CRE-02, TC-NEG-05, TC-NEG-06, TC-NEG-07, TC-NEG-08 |
 | `booking_lifecycle.feature` | TC-INT-01 |
 | JUnit 5 (`framework/`) | FW-01, FW-02 |
+
+**TC-AUTH-02 = dos escenarios del mismo requisito** (C-6 obliga a un único `Cuando`): "Modificar una reserva después de iniciar sesión" (modificación confirmada y persistida) y "Cancelar una reserva modificada sin volver a iniciar sesión" (cancelación, misma sesión en la modificación y en la cancelación, un solo inicio de sesión). Ambos llevan `@TC-AUTH-02` y son **independientes**: cada uno inicia su propia sesión y crea su propia reserva. No duplican cobertura: reparten las comprobaciones del requisito. Por eso la suite tiene **11 escenarios de Cucumber para 10 TC solicitados**.
+
+**Notas técnicas de los escenarios implementados** (salieron de los features por C-3):
+
+| TC | Nota |
+|---|---|
+| TC-AUTH-02 | La misma sesión se prueba comparando la huella SHA-256 de la cabecera `Cookie` realmente enviada en el `PUT` y en el `DELETE` con la del token obtenido (ADR-23); además, un solo `POST /auth` |
+| TC-NEG-02 | Un token caducado no se puede generar (RF-11, D-07): se usa un token generado que la API nunca emitió |
+| TC-QRY-01 | `GET /booking` solo devuelve `bookingid` (H-01, C-01). La búsqueda por nombre único es la acción; los detalles reales, la selección GPath (`findAll { it.booking.totalprice > T }`, valor límite excluido) y el detalle de la reserva identificada son observaciones posteriores (D-01). No se simula ningún dato |
+| TC-NEG-03 | El ID configurado (`9999999`) solo se usa si es mayor que el ID más alto existente (`GET /booking`, GPath `bookingid.max()`); si no, Precondition |
+| TC-CON-02 | Alcance: un `GET /booking/{id}`, tiempo del lado del cliente medido por Rest Assured; umbral estrictamente menor que `sla.booking.get.ms`; el tiempo real se adjunta antes de comparar |
+| TC-CON-03 | RNF-06 pide headers "de seguridad o servidor": no hay headers de seguridad (KD-06), así que `Server` se valida como cabecera técnica (presencia, no valor) |
 
 **Fuente del esperado:** [D] = documento de la prueba · [A] = documentación de la API.
 
@@ -166,5 +195,7 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 | `@BeforeAll` una sola vez; un contexto por escenario en paralelo; `@After` tras un paso fallido | ✅ Fase 0 |
 | Job `-Pknown-defects`: solo `@known-defect`, sin FW, con directorios propios y resultado real | ✅ Fase 0 |
 | Sintaxis GPath de D-01 (`findAll { it.<campo> > T }.<id>` con el `JsonPath` de Rest Assured 5.5.7) | ✅ Verificada: devuelve exactamente los IDs por encima del umbral, con el valor límite excluido |
-| Semántica del filtro `checkin` (TC-QRY-04) | Al implementar el escenario |
-| Step broken dentro de un escenario aprobado, panel Environment y consolidación concurrente de `target/cleanup/` | Fase 1 |
+| Semántica del filtro `checkin` (TC-QRY-04) | Al implementar el escenario (ronda de escenarios propuestos) |
+| Step broken de limpieza pendiente dentro de un escenario aprobado y panel Environment (D-08) | ✅ Ejecución forzada: escenario aprobado, step "Data cleanup pending" broken con adjunto, `cleanup.pending.count=1` |
+| Consolidación concurrente de la limpieza; ausencia de condiciones de carrera | ✅ 4 ejecuciones en paralelo: 0 pendientes, IDs y marcadores únicos, un token por inicio de sesión |
+| Observación posterior (ADR-22) | ✅ Visible en Allure, justo después del `Cuando` y antes del primer `Entonces`, en los 5 escenarios que la usan |
