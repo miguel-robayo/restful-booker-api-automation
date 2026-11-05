@@ -1,8 +1,8 @@
 # Estrategia de Pruebas — Restful-Booker API
 
-**Versión 3.2 · 2026-11-05 · Aprobado · Referencia para la implementación**
+**Versión 3.3 · 2026-11-05 · Aprobado · Referencia para la implementación**
 Requisitos y trazabilidad: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Divergencias: [`known-defects.md`](../known-defects.md) · Arquitectura: [`framework-architecture.md`](../architecture/framework-architecture.md)
-*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21).*
+*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21). v3.3: categoría Performance (SLA) y resultados de la verificación de la fase 0.*
 
 ## 1. Objetivo y alcance
 
@@ -72,24 +72,24 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 
 ## 6. Resultados y defectos en Allure
 
-**Evidencia por escenario** (adaptador único `allure-cucumber7-jvm`): pasos Gherkin con las Tasks y Questions anidadas · request y response con los secretos enmascarados · etiquetas (`@TC-xx`, `@esc-N`, `@requested`/`@proposed`, `@req`/`@kd-monitor`/`@known-defect`, funcionales) · `@issue=KD-xx` cuando aplica (su presentación en Allure se verifica en la fase 0; no se asume que genere un enlace) · tiempos · IDs creados y su limpieza. FW-01 y FW-02 se reportan en Surefire.
+**Evidencia por escenario** (adaptador único `allure-cucumber7-jvm`): pasos Gherkin con las Tasks y Questions anidadas · request y response con los secretos enmascarados · etiquetas (`@TC-xx`, `@esc-N`, `@requested`/`@proposed`, `@req`/`@kd-monitor`/`@known-defect`, funcionales) · `@issue=KD-xx` cuando aplica (verificado: Allure lo muestra como enlace de tipo *issue* hacia `known-defects.md`, gracias a `allure.link.issue.pattern`) · tiempos · IDs creados y su limpieza. FW-01 y FW-02 se reportan en Surefire.
 
-**Categorías de Allure (D-03; las cinco aprobadas, sin una sexta):**
+**Categorías de Allure (D-03):**
 
 | Categoría | Estado | Clasificación | Acción |
 |---|---|---|---|
 | **Product Defect** | failed | Aserción REQ **funcional** fallida, sin KD registrado (sin prefijo `KD-xx:` ni `SLA:`) | Analizar y registrar el defecto |
+| **Performance (SLA)** | failed | Prefijo `SLA:`: requisito **no funcional** de rendimiento incumplido | Revisar el tiempo medido frente al umbral; no es un defecto funcional |
 | **Known Defect** | failed | Prefijo `KD-xx:`: un REQ que incumple un KD abierto, o un MON cuyo comportamiento observado cambió | Consultar y actualizar `known-defects.md` |
 | **Precondition** | broken | `PreconditionFailedException` (prefijo `PRECONDITION:`) (D-09) | Revisar la capacidad base (`/auth`, `POST /booking`) |
 | **Infrastructure** | broken | Conexión, TLS, DNS, timeout o `/ping` caído (prefijo `INFRA:`) | Reintentar la ejecución completa más tarde |
 | **Test Defect** | broken | Cualquier otro error | Corregir el framework |
 
-**Performance/SLA (requisito no funcional):** un fallo de SLA **no es un fallo funcional**, así que queda **excluido** de Product Defect por su prefijo `SLA:`. Se identifica por el prefijo `SLA:` y la etiqueta `performance`, no por una categoría propia.
+**Por qué seis categorías (v3.3):** la verificación de la fase 0 mostró que, con cinco, Allure envía un fallo `SLA:` a su categoría interna *"Product defects"*, con un nombre casi idéntico al de los defectos funcionales. La categoría explícita **Performance (SLA)** lo separa (aprobada como A1); además lleva la etiqueta `performance`.
 
-**Limitaciones sin verificar todavía:**
-- **No está comprobado** cómo presenta Allure un failed que no coincide con ninguna categoría (el fallo de SLA). Hasta verificarlo en una ejecución real, la forma garantizada de localizarlo es filtrar por la etiqueta `performance` o por el prefijo `SLA:`.
-- También queda por comprobar la diferencia broken/failed y el orden y la exclusividad de las reglas.
-- Si una reserva desaparece por un reinicio de la API a mitad de un test, el 404 resultante cae en Product Defect y requiere revisión manual.
+**Verificado en la fase 0** (ejecución real con escenarios de prueba): AssertionError → failed y cualquier otra excepción → broken; `PRECONDITION:` → Precondition; `INFRA:` y `ConnectException` → Infrastructure; cada escenario en exactamente una categoría y ninguno sin categoría.
+
+**Limitación:** si una reserva desaparece por un reinicio de la API a mitad de un test, el 404 resultante cae en Product Defect y requiere revisión manual.
 
 ## 7. Matriz de escenarios
 
@@ -152,16 +152,18 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 |---|---|---|
 | Alcance y fuentes | **D-02** 24 escenarios (10 + 14) · **D-16** un feature por funcionalidad, con `@TC-xx` y `@esc-N` (actualizada en v3.2; antes: una clase por escenario del documento) · **D-17** [DOC] > [API-DOC] > [OBS] · **D-22** BDD con Cucumber y Gherkin en español; código en inglés | Trazabilidad por etiquetas; lo observado nunca se convierte en requisito; escenarios legibles para la exposición |
 | Escenario 3 | **D-01** GPath sobre la colección de detalles de las reservas propias | `GET /booking` no devuelve `totalprice` (C-01); los datos propios lo hacen determinista |
-| Aserciones y defectos | **D-03** REQ/MON (clasificados por requisito, no por lo observado) + 5 categorías · **D-18** registro versionado · **D-15** schema sin restricciones no documentadas · **D-19** filtros combinados · **D-20** rechazo sin código · **D-06** headers de seguridad como hallazgo · **D-07** token caducado no automatizable | Distinguir defectos nuevos de los conocidos sin ocultar ninguno, y sin afirmar más de lo que dicen las fuentes |
+| Aserciones y defectos | **D-03** REQ/MON (clasificados por requisito, no por lo observado) + 6 categorías (Performance (SLA) agregada en v3.3) · **D-18** registro versionado · **D-15** schema sin restricciones no documentadas · **D-19** filtros combinados · **D-20** rechazo sin código · **D-06** headers de seguridad como hallazgo · **D-07** token caducado no automatizable | Distinguir defectos nuevos de los conocidos sin ocultar ninguno, y sin afirmar más de lo que dicen las fuentes |
 | Datos y autenticación | **D-04** Datafaker · **D-05** credenciales por el entorno · **D-12** propiedad antes de borrar · **D-08** limpieza con visibilidad propia · **D-13** ID `9999999` | Seguridad, aislamiento y protección de datos ajenos |
 | Ejecución | **D-09** precondición = broken · **D-10** paralelo con 4 hilos · **D-11** SLA configurable sin reintentos · **D-14** ambientes `dev`/`qa` · **D-21** `@known-defect` en un job separado, con resultados propios | Diagnóstico claro, sin falsos verdes y respetando una API compartida; el job principal no queda en rojo por defectos ya registrados, que siguen visibles |
 
-## 10. Pendientes de verificar con una ejecución real
+## 10. Verificaciones con ejecución real
 
-| Ítem | Cuándo |
+| Ítem | Estado |
 |---|---|
-| Propagación de `-Denv`/`-D` a Surefire y resolución de la configuración | Fase 0 |
+| Propagación de `-Denv`/`-D` a Surefire y resolución de la configuración | ✅ Fase 0 |
+| Compatibilidad `allure-cucumber7-jvm` + Cucumber 7.34.9; un resultado de Allure por escenario; filtrado por etiquetas a través de `@Suite`; `@issue=KD-xx` | ✅ Fase 0 |
+| Estados broken/failed y categorías (incluido el SLA) | ✅ Fase 0 |
+| `@BeforeAll` una sola vez; un contexto por escenario en paralelo; `@After` tras un paso fallido | ✅ Fase 0 |
+| Job `-Pknown-defects`: solo `@known-defect`, sin FW, con directorios propios y resultado real | ✅ Fase 0 |
 | Sintaxis GPath (D-01) y semántica del filtro `checkin` (TC-QRY-04) | Al implementar cada escenario |
-| Estados broken/failed, reglas de las categorías, presentación de un failed de SLA fuera de las categorías, step broken dentro de un escenario aprobado y panel Environment | Primera ejecución con Allure |
-| Compatibilidad `allure-cucumber7-jvm` + Cucumber 7.34.9; un resultado de Allure por escenario; filtrado por etiquetas a través de `@Suite`; presentación de `@issue=KD-xx` | Fase 0 |
-| `@BeforeAll` una sola vez y `@After` tras un paso fallido, en paralelo; consolidación de `target/cleanup/` | Fase 0 |
+| Step broken dentro de un escenario aprobado, panel Environment y consolidación concurrente de `target/cleanup/` | Fase 1 |

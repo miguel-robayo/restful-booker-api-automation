@@ -1,12 +1,12 @@
 # Defectos Conocidos — Restful-Booker API
 
-**Versión 2.2 · 2026-11-05** · Registro versionado de divergencias (D-18). Requisitos: [`requirements-analysis.md`](analysis/requirements-analysis.md) · Escenarios: [`test-strategy.md`](strategy/test-strategy.md)
+**Versión 2.3 · 2026-11-05** · Registro versionado de divergencias (D-18). Requisitos: [`requirements-analysis.md`](analysis/requirements-analysis.md) · Escenarios: [`test-strategy.md`](strategy/test-strategy.md)
 
 **Reglas:**
 - Se registra lo que se aparta del documento de la prueba, del contrato de [API-DOC] o, donde nada está definido, de la semántica HTTP estándar. Lo observado **nunca** se convierte en requisito.
 - **REQ:** si un requisito o contrato define el comportamiento, el escenario lo afirma y **falla mientras el KD siga abierto**.
 - **MON:** solo para comportamientos que nada define (por ejemplo, códigos de error). Nunca cuenta como cobertura.
-- **Etiquetas Gherkin:** `@known-defect` = REQ con un KD abierto → se ejecuta **solo en el job separado** (`-Pknown-defects`, D-21) · `@kd-monitor` = MON → se queda en el job principal. Ambos llevan `@issue=KD-xx` (su presentación en Allure está por verificar) y el prefijo `KD-xx:` en la aserción, así que sus fallos aparecen en la categoría **Known Defect**, que es la señal para revisar esta tabla.
+- **Etiquetas Gherkin:** `@known-defect` = REQ con un KD abierto → se ejecuta **solo en el job separado** (`-Pknown-defects`, D-21) · `@kd-monitor` = MON → se queda en el job principal. Ambos llevan `@issue=KD-xx` (en Allure, un enlace de tipo *issue* hacia este registro) y el prefijo `KD-xx:` en la aserción, así que sus fallos aparecen en la categoría **Known Defect**, que es la señal para revisar esta tabla.
 - **Cierre de un KD:** cuando su escenario `@known-defect` pase en el job separado, se revisa la entrada, se marca `Corregido` y se quita la etiqueta para que el escenario vuelva al job principal.
 - Los IDs no se reutilizan.
 

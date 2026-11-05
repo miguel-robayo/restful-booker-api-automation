@@ -1,6 +1,6 @@
 # Arquitectura del Framework — Restful-Booker API
 
-**Versión 2.0 · 2026-11-05 · Para aprobación**
+**Versión 2.1 · 2026-11-05 · Aprobado** (v2.1: resultados de la verificación de la fase 0)
 Estrategia: [`test-strategy.md`](../strategy/test-strategy.md) · Requisitos: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Defectos: [`known-defects.md`](../known-defects.md)
 
 ## 1. Capas y responsabilidades
@@ -68,7 +68,7 @@ src/main/java/com/credibanco/qa/restfulbooker/
 └── support/     BookingCleaner, EnvironmentHealthCheck, CleanupReport, InfrastructureException
 
 src/test/java/com/credibanco/qa/restfulbooker/
-├── runners/     ApiScenariosSuite   (@Suite · @IncludeEngines("cucumber") · @SelectClasspathResource("features"))
+├── runners/     ApiScenariosSuite   (@Suite · @IncludeEngines("cucumber") · @SelectPackages("features"))
 ├── context/     ScenarioContext
 ├── hooks/       ScenarioHooks
 ├── steps/       AuthenticationSteps, BookingSteps, QuerySteps, ValidationSteps, LifecycleSteps
@@ -143,6 +143,16 @@ src/test/resources/
 | 18 | Maven Wrapper (Maven 3.9.14) | Build reproducible para evaluadores y CI; 3 archivos más |
 | 19 | Gherkin en español (`# language: es`), código en inglés | Legible para la exposición; dos idiomas en el repositorio |
 
-## 8. Pendiente de verificar con ejecuciones reales (fase 0)
+## 8. Verificación de la fase 0 (ejecución real con escenarios de prueba, sin HTTP)
 
-Compatibilidad de `allure-cucumber7-jvm 2.35.5` con Cucumber 7.34.9 · un resultado de Allure por escenario · filtrado por etiquetas a través de `@Suite` · `@BeforeAll` una sola vez en paralelo · `@After` después de un paso fallido · estados failed/broken y categorías · **cómo se refleja `@issue=KD-xx` en Allure** (no se asume que genere un enlace) · consolidación concurrente de `target/cleanup/`.
+| Verificado | Resultado |
+|---|---|
+| `allure-cucumber7-jvm 2.35.5` + Cucumber 7.34.9 | ✅ Compatibles; `allure-maven 3.1.0` genera el reporte con la herramienta Java 2.46.1 (no Node.js) |
+| Un resultado de Allure por escenario | ✅ 12 resultados para 12 escenarios; FW no aparece en Allure |
+| Filtrado por etiquetas a través de `@Suite` | ✅ `not @known-defect` en el principal; `-Pknown-defects` ejecuta solo `@known-defect`, sin FW y con directorios propios |
+| Paralelismo y aislamiento | ✅ 4 hilos, un `ScenarioContext` distinto por escenario, `@BeforeAll` una sola vez, `@After` tras un paso fallido |
+| Estados y categorías | ✅ failed/broken correctos; cada escenario en una sola categoría. Con cinco categorías, el SLA caía en la categoría interna "Product defects" de Allure → se agregó **Performance (SLA)** |
+| `@issue=KD-xx` | ✅ Enlace de tipo *issue*; navega a `known-defects.md` gracias a `allure.link.issue.pattern` |
+| Selector de features | `@SelectClasspathResource` genera un aviso de Cucumber → se usa `@SelectPackages("features")` |
+
+**Pendiente (fase 1):** consolidación concurrente de `target/cleanup/` con el `CleanupReport` real, step broken dentro de un escenario aprobado y panel Environment.
