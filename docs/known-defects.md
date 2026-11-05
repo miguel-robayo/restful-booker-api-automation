@@ -1,6 +1,6 @@
 # Defectos Conocidos — Restful-Booker API
 
-**Versión 2.3 · 2026-11-05** · Registro versionado de divergencias (D-18). Requisitos: [`requirements-analysis.md`](analysis/requirements-analysis.md) · Escenarios: [`test-strategy.md`](strategy/test-strategy.md)
+**Versión 2.4 · 2026-11-05** · Registro versionado de divergencias (D-18). Requisitos: [`requirements-analysis.md`](analysis/requirements-analysis.md) · Escenarios: [`test-strategy.md`](strategy/test-strategy.md)
 
 **Reglas:**
 - Se registra lo que se aparta del documento de la prueba, del contrato de [API-DOC] o, donde nada está definido, de la semántica HTTP estándar. Lo observado **nunca** se convierte en requisito.
@@ -19,6 +19,7 @@
 | KD-07 | Sin `additionalneeds` → **200** y la respuesta omite el campo obligatorio | Rechazo (RC-01: obligatorio; D-20) | Contrato documentado incumplido | **REQ** TC-CRE-02 (no 2xx) `@known-defect` → **falla mientras esté abierto** (job separado) | Abierto |
 | KD-06 | Sin headers de seguridad; `x-powered-by: Express` expuesto | Headers recomendados por OWASP (RNF-06) | Divulgación de información | **Exclusión justificada:** hallazgo sin test (D-06). RNF-06 pide headers "de seguridad **o** servidor" y la parte de servidor se cumple (TC-CON-03); ningún requisito exige headers de seguridad concretos | Hallazgo |
 | KD-08 | `Accept: application/xml` → `text/html` | XML (RC-06) | Contrato de XML incumplido | **Exclusión justificada:** XML fuera de alcance | Hallazgo |
+| KD-09 | `totalprice` decimal (`123.45`) → **200** y se guarda **truncado** (`123`), también en el `GET` (observado el 2026-11-05) | RC-01: `Number` admite decimales; se esperaría conservar el valor o rechazarlo | Pérdida silenciosa de datos | **Exclusión justificada:** hallazgo sin escenario (no está entre los 24 aprobados). Mitigación: `Booking.totalPrice` es `Integer` y `BookingDataFactory` genera precios enteros | Hallazgo |
 
 **Retirado:** KD-02 (`DELETE` → 201). Se registró por error: está documentado en [API-DOC] (RC-04) y es el resultado esperado.
 **No son defectos:** `GET /booking` sin `totalprice` (coincide con RC-03; es la contradicción C-01 del documento de la prueba) y `checkout` anterior a `checkin` aceptado (ninguna fuente define esa regla).

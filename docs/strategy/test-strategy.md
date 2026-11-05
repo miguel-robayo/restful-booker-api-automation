@@ -1,8 +1,8 @@
 # Estrategia de Pruebas — Restful-Booker API
 
-**Versión 3.3 · 2026-11-05 · Aprobado · Referencia para la implementación**
+**Versión 3.4 · 2026-11-05 · Aprobado · Referencia para la implementación**
 Requisitos y trazabilidad: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Divergencias: [`known-defects.md`](../known-defects.md) · Arquitectura: [`framework-architecture.md`](../architecture/framework-architecture.md)
-*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21). v3.3: categoría Performance (SLA) y resultados de la verificación de la fase 0.*
+*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21). v3.3: categoría Performance (SLA) y resultados de la verificación de la fase 0. v3.4: sintaxis GPath de D-01 verificada.*
 
 ## 1. Objetivo y alcance
 
@@ -165,5 +165,6 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 | Estados broken/failed y categorías (incluido el SLA) | ✅ Fase 0 |
 | `@BeforeAll` una sola vez; un contexto por escenario en paralelo; `@After` tras un paso fallido | ✅ Fase 0 |
 | Job `-Pknown-defects`: solo `@known-defect`, sin FW, con directorios propios y resultado real | ✅ Fase 0 |
-| Sintaxis GPath (D-01) y semántica del filtro `checkin` (TC-QRY-04) | Al implementar cada escenario |
+| Sintaxis GPath de D-01 (`findAll { it.<campo> > T }.<id>` con el `JsonPath` de Rest Assured 5.5.7) | ✅ Verificada: devuelve exactamente los IDs por encima del umbral, con el valor límite excluido |
+| Semántica del filtro `checkin` (TC-QRY-04) | Al implementar el escenario |
 | Step broken dentro de un escenario aprobado, panel Environment y consolidación concurrente de `target/cleanup/` | Fase 1 |
