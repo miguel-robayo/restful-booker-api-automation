@@ -63,12 +63,12 @@ public class AuthenticationSteps {
         miguel.remember(SESSION_TOKEN_FINGERPRINT, UseAnAuthToken.as(miguel).fingerprint());
     }
 
-    @Dado("no ha iniciado sesión")
+    @Dado("que no ha iniciado sesión")
     public void requireNoSession() {
         Preconditions.require(!miguel.hasAbilityTo(UseAnAuthToken.class), "Miguel must not hold any session token");
     }
 
-    @Dado("utiliza una sesión que el sistema no emitió")
+    @Dado("que utiliza una sesión que el sistema no emitió")
     public void useSessionNotIssuedBySystem() {
         miguel.can(UseAnAuthToken.invalid());
         Preconditions.require(miguel.hasAbilityTo(UseAnAuthToken.class), "Miguel must hold the session not issued by the system");

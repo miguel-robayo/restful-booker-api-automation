@@ -47,17 +47,21 @@ flowchart TB
 
 Verificado automáticamente: un `Cuando` contiene exactamente una acción HTTP; un `Entonces`, ninguna (`ArchitectureRulesTest`); un solo `Cuando` por escenario, Miguel solo en el primer `Dado` y sin términos técnicos (`FeatureConventionsTest`).
 
-Ejemplo (TC-NEG-01):
+Ejemplo (TC-NEG-01; los `Antecedentes` de la regla se ejecutan antes de cada escenario, así que cada uno crea su propia reserva):
 ```gherkin
 # language: es
-@TC-NEG-01 @esc-5 @requested @req @negative @security
-Escenario: Intentar modificar una reserva sin haber iniciado sesión
-  Dado que Miguel tiene una reserva registrada
-  Y conoce el estado actual de su reserva          # estado inicial (GET)
-  Y no ha iniciado sesión
-  Cuando intenta modificar su reserva              # única acción (PUT); declara la observación del estado
-  Entonces la modificación es rechazada por falta de autorización     # 403, sobre la respuesta guardada
-  Y la reserva conserva su información original                       # compara la observación (GET) con el estado inicial
+Regla: Sin una sesión válida no se puede modificar una reserva y esta conserva su información
+
+  Antecedentes:
+    Dado que Miguel tiene una reserva registrada     # crea la reserva propia (POST)
+    Y conoce el estado actual de su reserva          # estado inicial (GET)
+
+  @TC-NEG-01 @esc-5 @requested @req @negative @security
+  Escenario: Intentar modificar una reserva sin haber iniciado sesión
+    Dado que no ha iniciado sesión
+    Cuando intenta modificar su reserva              # única acción (PUT); declara la observación del estado
+    Entonces la modificación es rechazada por falta de autorización     # 403, sobre la respuesta guardada
+    Y la reserva conserva su información original                       # compara la observación (GET) con el estado inicial
 ```
 
 ## 3. Estructura

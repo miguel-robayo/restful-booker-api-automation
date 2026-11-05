@@ -44,7 +44,8 @@ Credentials come only from environment variables `RB_USERNAME` / `RB_PASSWORD` (
 ## BDD writing rules (checked by `FeatureConventionsTest`)
 
 - Business language only in features (titles, steps, comments): no token, HTTP, JSON, schema, GPath, SLA, Builder, headers or status codes. Technical notes live in `docs/strategy/test-strategy.md` §7.
-- One actor, **Miguel**, introduced in the first `Dado` ("Dado que Miguel …"); later steps omit the subject.
+- One actor, **Miguel**, introduced in the first executed `Dado` ("Dado que Miguel …"), which is the `Antecedentes` one when there is a background; later steps omit the subject. Checks run on effective steps (feature + rule background + scenario).
+- `Antecedentes` only for business preconditions shared by every scenario of its feature or `Regla`: `Dado`/`Y` only, at most 4 steps, never the action or outcomes (C-7). `Regla` only for examples of one business rule; `Esquema del escenario` only when just the data changes (C-8).
 - Exactly one `Cuando` per scenario (a `Y` after `Cuando` counts as another action). Split independent behaviors into separate scenarios that keep the same `@TC-*` tag.
 - Every scenario keeps `@TC-*` and `@esc-*` tags. Vocabulary: "iniciar sesión/sesión" = auth token, "cancelar" = DELETE (booking stops existing).
 - Java step methods: imperative verb for `Dado`/`Cuando`, `verify…` for `Entonces`; expected status codes come from `HttpStatus`.

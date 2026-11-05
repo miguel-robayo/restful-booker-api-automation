@@ -71,7 +71,7 @@ public class BookingSteps {
     }
 
     /** Same session as the later cancellation: the token comes from "que Miguel inició sesión". */
-    @Dado("ya modificó esa reserva durante la misma sesión")
+    @Dado("que ya modificó esa reserva durante la misma sesión")
     public void modifyBookingWithinSession() {
         Preconditions.require(miguel.hasAbilityTo(UseAnAuthToken.class), "Miguel must have signed in first");
         Booking updatedBookingDetails = newDetailsForOwnBooking();
