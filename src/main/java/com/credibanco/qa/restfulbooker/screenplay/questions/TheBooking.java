@@ -18,7 +18,7 @@ public final class TheBooking {
 
     public static Question<Optional<Booking>> withId(long bookingId) {
         return Question.about("the booking " + bookingId, actor -> {
-            Response response = CallTheApi.as(actor).bookingApi().getById(bookingId);
+            Response response = CallTheApi.as(actor).publicBookingApiFor(actor).getById(bookingId);
             actor.recordResponse(response);
             return response.statusCode() == 200 ? Optional.of(response.as(Booking.class)) : Optional.empty();
         });

@@ -41,7 +41,8 @@ public final class MaskedAllureFilter implements OrderedFilter {
                 .append(request.getMethod()).append(' ').append(request.getURI()).append('\n');
         for (Header header : request.getHeaders()) {
             text.append(header.getName()).append(": ")
-                    .append(SensitiveDataMasker.maskHeader(header.getName(), header.getValue())).append('\n');
+                    .append(SensitiveDataMasker.maskHeader(header.getName(), header.getValue()))
+                    .append(tokenIdentity(header)).append('\n');
         }
         for (Cookie cookie : request.getCookies()) {
             text.append("Cookie: ").append(cookie.getName()).append('=').append(SensitiveDataMasker.MASK).append('\n');
@@ -62,6 +63,13 @@ public final class MaskedAllureFilter implements OrderedFilter {
         text.append("Time: ").append(response.getTime()).append(" ms\n\n")
                 .append(SensitiveDataMasker.maskBody(response.asString()));
         return text.toString();
+    }
+
+    /** Lets reviewers compare which token each request carried without revealing it, e.g. {@code [token sha256:…]}. */
+    private static String tokenIdentity(Header header) {
+        return "Cookie".equalsIgnoreCase(header.getName())
+                ? TokenFingerprint.fromCookieHeader(header.getValue()).map(print -> " [token " + print + "]").orElse("")
+                : "";
     }
 
     private static String bodyAsText(Object body) {

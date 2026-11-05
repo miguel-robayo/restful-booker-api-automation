@@ -35,7 +35,7 @@ public final class Authenticate implements Performable {
 
     @Override
     public void performAs(Actor actor) {
-        Response response = CallTheApi.as(actor).authApi().createToken(credentials);
+        Response response = CallTheApi.as(actor).authApiFor(actor).createToken(credentials);
         actor.recordResponse(response);
         String token = issuedToken(response);
         tokenIssued = token != null;

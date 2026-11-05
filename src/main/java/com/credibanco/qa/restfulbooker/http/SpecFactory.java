@@ -6,11 +6,13 @@ import io.restassured.config.HttpClientConfig;
 import io.restassured.config.LogConfig;
 import io.restassured.config.ObjectMapperConfig;
 import io.restassured.config.RestAssuredConfig;
+import io.restassured.filter.Filter;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
 
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * The only place where request specifications are built (RNF-08, ADR-02). Every call returns a brand-new spec, so
@@ -47,18 +49,19 @@ public final class SpecFactory {
                         .setParam(SOCKET_TIMEOUT, config.httpTimeoutMs()));
     }
 
-    /** Unauthenticated spec. */
-    public RequestSpecification base() {
-        return newBuilder().build();
+    /** Unauthenticated spec, plus optional extra filters (e.g. a {@link SentRequestFilter}). */
+    public RequestSpecification base(Filter... extraFilters) {
+        return newBuilder(extraFilters).build();
     }
 
-    /** Spec that sends {@code Cookie: token=<token>}. */
-    public RequestSpecification authenticated(String token) {
-        return newBuilder().addFilter(new TokenCookieFilter(token)).build();
+    /** Spec that sends {@code Cookie: token=<token>}, plus optional extra filters. */
+    public RequestSpecification authenticated(String token, Filter... extraFilters) {
+        return newBuilder(extraFilters).addFilter(new TokenCookieFilter(token)).build();
     }
 
-    private RequestSpecBuilder newBuilder() {
+    private RequestSpecBuilder newBuilder(Filter... extraFilters) {
         return new RequestSpecBuilder()
+                .addFilters(List.of(extraFilters))
                 .setBaseUri(baseUrl)
                 .setContentType(ContentType.JSON)
                 // Exactly the documented value (RC-06); ContentType.JSON would send four JSON-like media types

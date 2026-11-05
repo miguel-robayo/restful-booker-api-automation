@@ -1,6 +1,7 @@
 package com.credibanco.qa.restfulbooker.screenplay.abilities;
 
 import com.credibanco.qa.restfulbooker.http.SensitiveDataMasker;
+import com.credibanco.qa.restfulbooker.http.TokenFingerprint;
 import com.credibanco.qa.restfulbooker.screenplay.core.Ability;
 import com.credibanco.qa.restfulbooker.screenplay.core.Actor;
 
@@ -32,6 +33,11 @@ public final class UseAnAuthToken implements Ability {
 
     public String token() {
         return token;
+    }
+
+    /** One-way identity of the token, safe to report and compare. */
+    public String fingerprint() {
+        return TokenFingerprint.of(token);
     }
 
     @Override

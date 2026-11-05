@@ -24,7 +24,7 @@ public final class BookingIds {
 
     public static Question<List<Integer>> matching(Map<String, ?> filters) {
         return Question.about("the booking ids matching " + filters, actor -> {
-            Response response = CallTheApi.as(actor).bookingApi().findIds(filters);
+            Response response = CallTheApi.as(actor).publicBookingApiFor(actor).findIds(filters);
             actor.recordResponse(response);
             return response.statusCode() == 200 ? response.jsonPath().getList(IDS, Integer.class) : List.of();
         });

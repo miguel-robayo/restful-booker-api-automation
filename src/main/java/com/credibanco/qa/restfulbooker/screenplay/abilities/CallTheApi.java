@@ -5,12 +5,15 @@ import com.credibanco.qa.restfulbooker.api.BookingApi;
 import com.credibanco.qa.restfulbooker.http.SpecFactory;
 import com.credibanco.qa.restfulbooker.screenplay.core.Ability;
 import com.credibanco.qa.restfulbooker.screenplay.core.Actor;
+import io.restassured.filter.Filter;
 
 /**
- * Gives an actor API Objects built with the right spec: authenticated when the actor holds
- * {@link UseAnAuthToken}, unauthenticated otherwise. Specs are created per call, never cached.
+ * Gives an actor API Objects built with the right spec. Specs are created per call, never cached. When the actor
+ * can {@link RecordSentRequests}, every request it sends is recorded.
  */
 public final class CallTheApi implements Ability {
+
+    private static final Filter[] NO_FILTERS = new Filter[0];
 
     private final SpecFactory specs;
 
@@ -26,19 +29,25 @@ public final class CallTheApi implements Ability {
         return actor.abilityTo(CallTheApi.class);
     }
 
-    public AuthApi authApi() {
-        return new AuthApi(specs.base());
+    public AuthApi authApiFor(Actor actor) {
+        return new AuthApi(specs.base(recorderOf(actor)));
     }
 
-    /** Unauthenticated access, for reads and for negative scenarios without a token. */
-    public BookingApi bookingApi() {
-        return new BookingApi(specs.base());
+    /** Without token: creation and reads, which the API does not protect. */
+    public BookingApi publicBookingApiFor(Actor actor) {
+        return new BookingApi(specs.base(recorderOf(actor)));
     }
 
-    /** Access with the actor's token if it has one (valid or deliberately invalid), otherwise unauthenticated. */
+    /** With the actor's token if it holds one (valid or deliberately invalid), otherwise without token. */
     public BookingApi bookingApiFor(Actor actor) {
         return actor.hasAbilityTo(UseAnAuthToken.class)
-                ? new BookingApi(specs.authenticated(UseAnAuthToken.as(actor).token()))
-                : bookingApi();
+                ? new BookingApi(specs.authenticated(UseAnAuthToken.as(actor).token(), recorderOf(actor)))
+                : publicBookingApiFor(actor);
+    }
+
+    private static Filter[] recorderOf(Actor actor) {
+        return actor.hasAbilityTo(RecordSentRequests.class)
+                ? new Filter[]{RecordSentRequests.as(actor).filter()}
+                : NO_FILTERS;
     }
 }

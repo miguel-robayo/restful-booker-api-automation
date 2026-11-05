@@ -29,7 +29,7 @@ public final class CreateBooking implements Performable {
 
     @Override
     public void performAs(Actor actor) {
-        Response response = CallTheApi.as(actor).bookingApi().create(payload);
+        Response response = CallTheApi.as(actor).publicBookingApiFor(actor).create(payload);
         actor.recordResponse(response);
         trackIfCreated(actor, response);
     }

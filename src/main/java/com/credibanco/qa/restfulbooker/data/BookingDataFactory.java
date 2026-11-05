@@ -83,6 +83,11 @@ public final class BookingDataFactory {
         return aValidBooking().toBuilder().totalPrice(totalPrice).build();
     }
 
+    /** Valid booking with a given first name and price, e.g. bookings around a filter threshold. */
+    public Booking aBookingWithFirstNameAndPrice(String firstName, int totalPrice) {
+        return aBookingWithFirstName(firstName).toBuilder().totalPrice(totalPrice).build();
+    }
+
     /** Generated first name plus a unique marker, e.g. {@code Lamar-3f9a1c2e7b04}. */
     public String uniqueFirstName() {
         return lettersOnly(faker.name().firstName()) + "-" + UniqueMarker.next();
