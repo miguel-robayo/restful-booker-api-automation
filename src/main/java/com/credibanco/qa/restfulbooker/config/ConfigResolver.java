@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Resolves {@link TestConfig} with this precedence (highest first):
+ * Resolves {@link EnvironmentConfig} with this precedence (highest first):
  * {@code -Dkey} &gt; {@code RB_KEY} environment variable &gt; {@code config/<env>.properties} &gt;
  * {@code config/default.properties}. File values may reference environment variables as {@code ${VAR}}.
  *
@@ -48,7 +48,7 @@ public final class ConfigResolver {
         return new ConfigResolver(systemProperties, System.getenv(), ConfigResolver::loadFromClasspath);
     }
 
-    public TestConfig resolve() {
+    public EnvironmentConfig resolve() {
         Properties defaults = configFileLoader.apply(DEFAULT_FILE).orElseThrow(() ->
                 new ConfigurationException("Missing config/" + DEFAULT_FILE + ".properties on the test classpath."));
         String environment = override(ConfigKeys.ENVIRONMENT).orElse(DEFAULT_ENVIRONMENT);
@@ -58,7 +58,7 @@ public final class ConfigResolver {
         files.putAll(defaults);
         files.putAll(environmentFile);
 
-        return new TestConfig(
+        return new EnvironmentConfig(
                 environment,
                 httpsUrl(required(ConfigKeys.BASE_URL, files)),
                 value(ConfigKeys.USERNAME, files).orElse(null),

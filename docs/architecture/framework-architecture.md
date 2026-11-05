@@ -58,7 +58,7 @@ Escenario: Actualizar una reserva sin token es rechazado
 
 ```
 src/main/java/com/credibanco/qa/restfulbooker/
-├── config/      TestConfig, ConfigResolver, ConfigurationException
+├── config/      EnvironmentConfig, ConfigResolver, ConfigurationException
 ├── http/        SpecFactory, JsonMapper, TokenCookieFilter, MaskedAllureFilter, SensitiveDataMasker
 ├── api/         AuthApi, BookingApi
 ├── model/       Booking, BookingDates, BookingResponse, AuthRequest, AuthResponse
@@ -117,7 +117,7 @@ src/test/resources/
 | Datos | `BookingDataFactory` (Datafaker, semilla por escenario); `firstname` único; serialización `NON_NULL`; `InvalidBookingPayload` solo en `src/test` |
 | Excepciones (unchecked) | `AssertionError` → failed · `PreconditionFailedException` / `InfrastructureException` / otras → broken. `ConfigurationException` → Test Defect. Nadie silencia excepciones |
 | Logs | Request/response enmascarados como adjuntos de Allure del paso · `log().ifValidationFails()` por spec, con `Cookie`/`Authorization` en lista negra · `System.Logger` del JDK para el framework |
-| Paralelismo seguro | Sin escrituras en `RestAssured.*`; specs inmutables; actor, `Faker` y tracker por escenario. Compartidos e inmutables: `TestConfig`, `JsonMapper` |
+| Paralelismo seguro | Sin escrituras en `RestAssured.*`; specs inmutables; actor, `Faker` y tracker por escenario. Compartidos e inmutables: `EnvironmentConfig`, `JsonMapper` |
 
 ## 7. Decisiones de arquitectura (ADR)
 

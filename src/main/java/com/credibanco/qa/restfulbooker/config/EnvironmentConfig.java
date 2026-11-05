@@ -6,9 +6,9 @@ import java.net.URI;
  * Immutable configuration of a test run. Credentials are validated on first use, so technical tests that never
  * call the API do not need them.
  */
-public final class TestConfig {
+public final class EnvironmentConfig {
 
-    private static volatile TestConfig current;
+    private static volatile EnvironmentConfig current;
 
     private final String environment;
     private final URI baseUrl;
@@ -19,7 +19,7 @@ public final class TestConfig {
     private final long notFoundBookingId;
     private final int httpTimeoutMs;
 
-    TestConfig(String environment, URI baseUrl, String username, String password, long slaBookingGetMs,
+    EnvironmentConfig(String environment, URI baseUrl, String username, String password, long slaBookingGetMs,
                int queryPriceThreshold, long notFoundBookingId, int httpTimeoutMs) {
         this.environment = environment;
         this.baseUrl = baseUrl;
@@ -35,10 +35,10 @@ public final class TestConfig {
      * Configuration resolved from the running JVM (system properties, environment variables and classpath files).
      * Resolved once; a failed resolution is retried on the next call so the error is always the real cause.
      */
-    public static TestConfig current() {
-        TestConfig config = current;
+    public static EnvironmentConfig current() {
+        EnvironmentConfig config = current;
         if (config == null) {
-            synchronized (TestConfig.class) {
+            synchronized (EnvironmentConfig.class) {
                 if (current == null) {
                     current = ConfigResolver.fromRuntime().resolve();
                 }
@@ -90,7 +90,7 @@ public final class TestConfig {
 
     @Override
     public String toString() {
-        return "TestConfig[environment=" + environment
+        return "EnvironmentConfig[environment=" + environment
                 + ", baseUrl=" + baseUrl
                 + ", username=" + (username == null ? "<missing>" : "<set>")
                 + ", password=" + (password == null ? "<missing>" : "<set>")

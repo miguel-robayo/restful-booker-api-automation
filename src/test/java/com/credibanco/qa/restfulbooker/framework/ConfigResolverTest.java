@@ -2,7 +2,7 @@ package com.credibanco.qa.restfulbooker.framework;
 
 import com.credibanco.qa.restfulbooker.config.ConfigResolver;
 import com.credibanco.qa.restfulbooker.config.ConfigurationException;
-import com.credibanco.qa.restfulbooker.config.TestConfig;
+import com.credibanco.qa.restfulbooker.config.EnvironmentConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ class ConfigResolverTest {
     @Test
     @DisplayName("defaults to the qa environment and merges default and environment files")
     void defaultsToQaEnvironment() {
-        TestConfig config = resolver(Map.of(), Map.of()).resolve();
+        EnvironmentConfig config = resolver(Map.of(), Map.of()).resolve();
 
         assertAll(
                 () -> assertEquals("qa", config.environment()),
@@ -44,7 +44,7 @@ class ConfigResolverTest {
     @Test
     @DisplayName("selects the environment with -Denv")
     void selectsEnvironmentFromSystemProperty() {
-        TestConfig config = resolver(Map.of("env", "dev"), Map.of()).resolve();
+        EnvironmentConfig config = resolver(Map.of("env", "dev"), Map.of()).resolve();
 
         assertAll(
                 () -> assertEquals("dev", config.environment()),
@@ -66,7 +66,7 @@ class ConfigResolverTest {
     @Test
     @DisplayName("resolves credential placeholders from environment variables")
     void resolvesCredentialPlaceholders() {
-        TestConfig config = resolver(Map.of(), Map.of("RB_USERNAME", "user-from-env", "RB_PASSWORD", "secret-from-env"))
+        EnvironmentConfig config = resolver(Map.of(), Map.of("RB_USERNAME", "user-from-env", "RB_PASSWORD", "secret-from-env"))
                 .resolve();
 
         assertAll(
@@ -77,7 +77,7 @@ class ConfigResolverTest {
     @Test
     @DisplayName("fails on first use, not on load, when a credential is missing")
     void failsOnFirstUseOfMissingCredential() {
-        TestConfig config = resolver(Map.of(), Map.of()).resolve();
+        EnvironmentConfig config = resolver(Map.of(), Map.of()).resolve();
 
         ConfigurationException error = assertThrows(ConfigurationException.class, config::username);
         assertAll(
@@ -88,7 +88,7 @@ class ConfigResolverTest {
     @Test
     @DisplayName("never exposes credential values in toString")
     void hidesCredentialsInToString() {
-        TestConfig config = resolver(Map.of(), Map.of("RB_USERNAME", "user-from-env", "RB_PASSWORD", "secret-from-env"))
+        EnvironmentConfig config = resolver(Map.of(), Map.of("RB_USERNAME", "user-from-env", "RB_PASSWORD", "secret-from-env"))
                 .resolve();
 
         String text = config.toString();
@@ -130,7 +130,7 @@ class ConfigResolverTest {
     @DisplayName("ships valid dev and qa configuration files")
     void shipsValidConfigurationFiles() {
         for (String environment : new String[]{"dev", "qa"}) {
-            TestConfig config = new ConfigResolver(Map.of("env", environment), Map.of(), ConfigResolver::loadFromClasspath)
+            EnvironmentConfig config = new ConfigResolver(Map.of("env", environment), Map.of(), ConfigResolver::loadFromClasspath)
                     .resolve();
             assertEquals("https", config.baseUrl().getScheme(), environment);
         }
