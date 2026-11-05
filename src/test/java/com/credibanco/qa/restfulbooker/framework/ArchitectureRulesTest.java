@@ -8,11 +8,20 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Layer rules of the architecture (ADR-02, ADR-03, ADR-04, §11), checked on the source code without extra
@@ -36,10 +45,14 @@ class ArchitectureRulesTest {
             "import\\s+(static\\s+)?(io\\.restassured\\.RestAssured|io\\.restassured\\.specification|"
                     + "io\\.restassured\\.builder|com\\.credibanco\\.qa\\.restfulbooker\\.api)|\\bgiven\\s*\\(");
     private static final Pattern SLEEP = Pattern.compile("Thread\\s*\\.\\s*sleep|TimeUnit\\.[A-Z]+\\.sleep");
-    /** HTTP happens only through Tasks or HTTP Questions; neither may appear in an "Entonces" step. */
-    private static final Pattern HTTP_ACTION = Pattern.compile(
-            "\\b(attemptsTo|wasAbleTo|TheBooking\\.|BookingIds\\.|BookingDetails\\.|HighestBookingId\\.)");
+    private static final Path QUESTIONS = MAIN.resolve(Paths.get("screenplay", "questions"));
+    /** A Question is an HTTP read when it uses the API ability, directly or through another HTTP Question. */
+    private static final Pattern USES_THE_API = Pattern.compile("\\bCallTheApi\\b");
     private static final Pattern STEP_ANNOTATION = Pattern.compile("@(Dado|Cuando|Entonces|Y|Pero)\\s*\\(");
+    private static final Pattern PRIVATE_METHOD = Pattern.compile(
+            "private\\s+(?:static\\s+)?[\\w<>,?\\[\\]\\s]+?\\s+(\\w+)\\s*\\(");
+    /** Questions that only read the actor's memory; used as a sanity check of the HTTP detection. */
+    private static final Set<String> MEMORY_ONLY_QUESTIONS = Set.of("TheLastResponse", "TheSentRequests", "BookingsPricedAbove");
 
     @Test
     @DisplayName("nobody writes static RestAssured state")
@@ -82,23 +95,64 @@ class ArchitectureRulesTest {
     @Test
     @DisplayName("\"Entonces\" steps make no HTTP calls: they only check stored results")
     void thenStepsMakeNoHttpCalls() {
+        Pattern httpAction = httpAction(httpQuestions());
         assertEquals(List.of(), javaFiles(TEST.resolve("steps")).stream()
-                .flatMap(file -> thenBlocksWithHttp(file).stream())
+                .flatMap(file -> thenStepsWithHttp(file.getFileName().toString(), read(file), httpAction).stream())
                 .toList());
     }
 
-    /** Each "Entonces" method: from its annotation to the closing brace of its body. */
+    @Test
+    @DisplayName("HTTP Questions are derived from the code, not from a fixed list")
+    void httpQuestionsAreDerivedFromTheCode() {
+        Set<String> httpQuestions = httpQuestions();
+
+        assertTrue(httpQuestions.containsAll(Set.of("TheBooking", "BookingIds", "BookingDetails", "HighestBookingId")),
+                "detected HTTP questions: " + httpQuestions);
+        assertEquals(Set.of(), httpQuestions.stream().filter(MEMORY_ONLY_QUESTIONS::contains).collect(Collectors.toSet()),
+                "memory-only questions must not be classified as HTTP");
+    }
+
+    @Test
+    @DisplayName("an \"Entonces\" step that reaches HTTP through a private helper is detected")
+    void thenStepUsingAnHttpHelperIsDetected() {
+        Pattern httpAction = httpAction(Set.of("TheBooking"));
+        String steps = """
+                @Entonces("la reserva conserva sus datos")
+                public void verifyKept() {
+                    assertEquals(expected, miguel.asksFor(currentState()));
+                }
+
+                @Entonces("la reserva sigue registrada")
+                public void verifyStillRegistered() {
+                    assertEquals(expected, miguel.recall(STATE));
+                }
+
+                private Question<Optional<Booking>> currentState() {
+                    return wrapped();
+                }
+
+                private Question<Optional<Booking>> wrapped() {
+                    return TheBooking.withId(ownBookingId());
+                }
+                """;
+
+        assertEquals(List.of("Sample.java: @Entonces(\"la reserva conserva sus datos\")"),
+                thenStepsWithHttp("Sample.java", steps, httpAction));
+    }
+
+    /** Each "Cuando" method, from its annotation to the closing brace of its body, contains exactly one HTTP action. */
     @Test
     @DisplayName("each \"Cuando\" step performs exactly one action; further reads are declared post-action observations")
     void whenStepsPerformExactlyOneAction() {
-        List<String> offenders = new java.util.ArrayList<>();
+        Pattern httpAction = httpAction(httpQuestions());
+        List<String> offenders = new ArrayList<>();
         for (Path file : javaFiles(TEST.resolve("steps"))) {
             String source = read(file);
-            java.util.regex.Matcher annotation = STEP_ANNOTATION.matcher(source);
+            Matcher annotation = STEP_ANNOTATION.matcher(source);
             while (annotation.find()) {
                 if (annotation.group(1).equals("Cuando")) {
                     String method = source.substring(annotation.start(), methodEnd(source, annotation.end()));
-                    long actions = HTTP_ACTION.matcher(method).results().count();
+                    long actions = httpAction.matcher(method).results().count();
                     if (actions != 1) {
                         offenders.add(file.getFileName() + ": " + method.lines().findFirst().orElse("") + " -> " + actions);
                     }
@@ -108,26 +162,87 @@ class ArchitectureRulesTest {
         assertEquals(List.of(), offenders);
     }
 
-    private static List<String> thenBlocksWithHttp(Path file) {
-        String source = read(file);
-        java.util.regex.Matcher annotation = STEP_ANNOTATION.matcher(source);
-        List<String> offenders = new java.util.ArrayList<>();
+    /**
+     * HTTP happens only through Tasks or HTTP Questions. HTTP Questions are those under {@code screenplay/questions}
+     * that use {@code CallTheApi}, plus, transitively, those that compose another HTTP Question.
+     */
+    private static Set<String> httpQuestions() {
+        Map<String, String> sources = javaFiles(QUESTIONS).stream().collect(Collectors.toMap(
+                file -> file.getFileName().toString().replace(".java", ""), ArchitectureRulesTest::read));
+        Set<String> http = sources.entrySet().stream()
+                .filter(question -> USES_THE_API.matcher(question.getValue()).find())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toCollection(TreeSet::new));
+        boolean grew = !http.isEmpty();
+        while (grew) {
+            Pattern usesHttp = referencesTo(http);
+            grew = http.addAll(sources.entrySet().stream()
+                    .filter(question -> usesHttp.matcher(question.getValue()).find())
+                    .map(Map.Entry::getKey)
+                    .toList());
+        }
+        return http;
+    }
+
+    private static Pattern httpAction(Set<String> httpQuestions) {
+        String questions = httpQuestions.stream().map(name -> "|" + Pattern.quote(name) + "\\.").collect(Collectors.joining());
+        return Pattern.compile("\\b(attemptsTo|wasAbleTo" + questions + ")");
+    }
+
+    private static Pattern referencesTo(Set<String> classNames) {
+        return Pattern.compile("\\b(" + classNames.stream().map(Pattern::quote).collect(Collectors.joining("|")) + ")\\.");
+    }
+
+    /** Each "Entonces" method, from its annotation to its closing brace, that reaches HTTP directly or via a helper. */
+    private static List<String> thenStepsWithHttp(String fileName, String source, Pattern httpAction) {
+        Set<String> helpers = httpHelpers(source, httpAction);
+        Pattern helperCall = helpers.isEmpty() ? null
+                : Pattern.compile("\\b(" + String.join("|", helpers) + ")\\s*\\(");
+        Matcher annotation = STEP_ANNOTATION.matcher(source);
+        List<String> offenders = new ArrayList<>();
         while (annotation.find()) {
             if (!annotation.group(1).equals("Entonces")) {
                 continue;
             }
             String method = source.substring(annotation.start(), methodEnd(source, annotation.end()));
-            if (HTTP_ACTION.matcher(method).find()) {
-                offenders.add(file.getFileName() + ": " + method.lines().findFirst().orElse(""));
+            if (httpAction.matcher(method).find() || (helperCall != null && helperCall.matcher(method).find())) {
+                offenders.add(fileName + ": " + method.lines().findFirst().orElse(""));
             }
         }
         return offenders;
     }
 
+    /** Private methods of a step class that reach HTTP, directly or through another such helper. */
+    private static Set<String> httpHelpers(String source, Pattern httpAction) {
+        Map<String, String> bodies = new LinkedHashMap<>();
+        Matcher method = PRIVATE_METHOD.matcher(source);
+        while (method.find()) {
+            int open = source.indexOf('{', method.end());
+            if (open >= 0) {
+                bodies.put(method.group(1), source.substring(open, blockEnd(source, open)));
+            }
+        }
+        Set<String> http = new LinkedHashSet<>();
+        boolean grew = true;
+        while (grew) {
+            Pattern helperCall = http.isEmpty() ? null : Pattern.compile("\\b(" + String.join("|", http) + ")\\s*\\(");
+            grew = http.addAll(bodies.entrySet().stream()
+                    .filter(body -> httpAction.matcher(body.getValue()).find()
+                            || (helperCall != null && helperCall.matcher(body.getValue()).find()))
+                    .map(Map.Entry::getKey)
+                    .toList());
+        }
+        return http;
+    }
+
     /** Brace matching starts at the method body, after the signature: step texts such as "{int}" contain braces. */
     private static int methodEnd(String source, int from) {
         int signature = source.indexOf("public ", from);
-        int open = source.indexOf('{', signature < 0 ? from : signature);
+        return blockEnd(source, source.indexOf('{', signature < 0 ? from : signature));
+    }
+
+    /** Index just after the brace that closes the block opened at {@code open}. */
+    private static int blockEnd(String source, int open) {
         int depth = 0;
         for (int i = open; i < source.length(); i++) {
             char c = source.charAt(i);

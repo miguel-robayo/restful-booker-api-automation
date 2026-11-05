@@ -9,7 +9,8 @@ import java.util.Optional;
 
 /**
  * Real details of a list of bookings, one {@code GET /booking/{id}} each (D-01: {@code GET /booking} only returns
- * ids). Built with a stream, without loops. Bookings that no longer exist are left out, never invented.
+ * ids). Built with a stream, without loops. Bookings that no longer exist are left out, never invented. Each read
+ * goes through the actor, so it is a visible step in the report.
  */
 public final class BookingDetails {
 
@@ -18,7 +19,7 @@ public final class BookingDetails {
 
     public static Question<List<BookingResponse>> of(List<Integer> bookingIds) {
         return Question.about("the details of bookings " + bookingIds, actor -> bookingIds.stream()
-                .map(id -> detail(id, TheBooking.withId(id).answeredBy(actor)))
+                .map(id -> detail(id, actor.asksFor(TheBooking.withId(id))))
                 .flatMap(Optional::stream)
                 .toList());
     }

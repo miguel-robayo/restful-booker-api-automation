@@ -20,14 +20,6 @@ public final class TheLastResponse {
         return Question.about("the last response status", actor -> of(actor).statusCode());
     }
 
-    public static Question<Long> timeInMillis() {
-        return Question.about("the last response time", actor -> of(actor).time());
-    }
-
-    public static Question<String> header(String name) {
-        return Question.about("the last response header '" + name + "'", actor -> of(actor).header(name));
-    }
-
     public static <T> Question<T> bodyAs(Class<T> type) {
         return Question.about("the last response body as " + type.getSimpleName(), actor -> of(actor).as(type));
     }

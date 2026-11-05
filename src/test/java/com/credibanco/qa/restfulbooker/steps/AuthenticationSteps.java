@@ -1,7 +1,6 @@
 package com.credibanco.qa.restfulbooker.steps;
 
 import com.credibanco.qa.restfulbooker.context.ScenarioContext;
-import com.credibanco.qa.restfulbooker.http.SentRequest;
 import com.credibanco.qa.restfulbooker.model.AuthResponse;
 import com.credibanco.qa.restfulbooker.reporting.AllureReporter;
 import com.credibanco.qa.restfulbooker.screenplay.abilities.UseAnAuthToken;
@@ -17,7 +16,6 @@ import io.cucumber.java.es.Dado;
 import io.cucumber.java.es.Entonces;
 import io.restassured.response.Response;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -36,12 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Sign-in and session steps. Business vocabulary: "iniciar sesión" = obtain an auth token; "sesión" = that token.
  */
 public class AuthenticationSteps {
-
-    private static final String AUTH_PATH = "/auth";
-    private static final String BOOKING_PATH = "/booking/";
-    private static final String POST = "POST";
-    private static final String PUT = "PUT";
-    private static final String DELETE = "DELETE";
 
     private final Actor miguel;
 
@@ -102,14 +94,13 @@ public class AuthenticationSteps {
 
     @Entonces("la modificación y la cancelación se realizaron con la misma sesión")
     public void verifyModificationAndCancellationUsedSameSession() {
-        List<SentRequest> sentRequests = miguel.asksFor(TheSentRequests.all());
-        String bookingPath = BOOKING_PATH + miguel.<Integer>recall(OWN_BOOKING_ID);
-        Optional<String> modificationToken = tokenSentBy(sentRequests, PUT, bookingPath);
-        Optional<String> cancellationToken = tokenSentBy(sentRequests, DELETE, bookingPath);
+        int ownBookingId = miguel.recall(OWN_BOOKING_ID);
+        Optional<String> modificationToken = miguel.asksFor(TheSentRequests.sessionUsedToModify(ownBookingId));
+        Optional<String> cancellationToken = miguel.asksFor(TheSentRequests.sessionUsedToCancel(ownBookingId));
         String sessionToken = miguel.recall(SESSION_TOKEN_FINGERPRINT);
         AllureReporter.attach("Token identity per request (fingerprints, never the token)",
                 "Obtained at sign-in: " + sessionToken + "\n"
-                        + sentRequests.stream().map(SentRequest::toString).collect(Collectors.joining("\n")));
+                        + miguel.asksFor(TheSentRequests.all()).stream().map(Object::toString).collect(Collectors.joining("\n")));
         assertAll(
                 () -> assertTrue(modificationToken.isPresent(), "the modification must carry a session token"),
                 () -> assertTrue(cancellationToken.isPresent(), "the cancellation must carry a session token"),
@@ -119,16 +110,6 @@ public class AuthenticationSteps {
 
     @Entonces("no fue necesario iniciar sesión nuevamente")
     public void verifySingleSignIn() {
-        long signIns = miguel.asksFor(TheSentRequests.all()).stream()
-                .filter(request -> request.method().equals(POST) && request.path().equals(AUTH_PATH))
-                .count();
-        assertEquals(1, signIns, "POST /auth must be sent exactly once");
-    }
-
-    private static Optional<String> tokenSentBy(List<SentRequest> sentRequests, String method, String path) {
-        return sentRequests.stream()
-                .filter(request -> request.method().equals(method) && request.path().equals(path))
-                .findFirst()
-                .flatMap(SentRequest::tokenFingerprint);
+        assertEquals(1L, miguel.asksFor(TheSentRequests.signIns()), "POST /auth must be sent exactly once");
     }
 }

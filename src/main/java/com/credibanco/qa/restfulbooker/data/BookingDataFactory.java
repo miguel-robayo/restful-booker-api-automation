@@ -9,7 +9,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Single source of valid, unique and reproducible booking data (test strategy §4, D-04).
@@ -40,10 +39,6 @@ public final class BookingDataFactory {
         this.random = new Random(seed);
         this.faker = new Faker(Locale.ENGLISH, random);
         this.clock = clock;
-    }
-
-    public static BookingDataFactory withRandomSeed() {
-        return withSeed(ThreadLocalRandom.current().nextLong());
     }
 
     public static BookingDataFactory withSeed(long seed) {

@@ -114,8 +114,8 @@ public class BookingSearchSteps {
 
     @Cuando("consulta esa reserva")
     public void retrieveNonexistentBooking() {
-        miguel.asksFor(TheBooking.withId(miguel.<Long>recall(NONEXISTENT_BOOKING_ID)));
-        miguel.remember(NONEXISTENT_BOOKING_RESPONSE, miguel.asksFor(TheLastResponse.raw()));
+        miguel.remember(NONEXISTENT_BOOKING_RESPONSE,
+                miguel.asksFor(TheBooking.responseFor(miguel.<Long>recall(NONEXISTENT_BOOKING_ID))));
     }
 
     // ---------- Entonces (no HTTP: stored evidence only) ----------

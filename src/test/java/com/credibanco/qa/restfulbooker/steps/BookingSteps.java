@@ -95,28 +95,25 @@ public class BookingSteps {
     @Cuando("modifica los datos de su reserva")
     public void updateBooking() {
         miguel.attemptsTo(ownBookingUpdate());
-        miguel.remember(UPDATE_RESPONSE, miguel.asksFor(TheLastResponse.raw()));
-        observations.after("state of the booking after the modification", ownBookingState(), BOOKING_STATE_AFTER_ACTION);
+        recordUpdateOutcome("state of the booking after the modification");
     }
 
     @Cuando("intenta modificar su reserva")
     public void attemptBookingUpdate() {
         miguel.attemptsTo(ownBookingUpdate());
-        miguel.remember(UPDATE_RESPONSE, miguel.asksFor(TheLastResponse.raw()));
-        observations.after("state of the booking after the attempt", ownBookingState(), BOOKING_STATE_AFTER_ACTION);
+        recordUpdateOutcome("state of the booking after the attempt");
     }
 
     @Cuando("cancela su reserva")
     public void cancelBooking() {
         miguel.attemptsTo(DeleteBooking.withId(ownBookingId()));
         miguel.remember(CANCELLATION_RESPONSE, miguel.asksFor(TheLastResponse.raw()));
-        observations.after("reading the booking after the cancellation", readingOwnBooking(), BOOKING_READ_AFTER_ACTION);
+        observations.after("reading the booking after the cancellation", ownBookingReading(), BOOKING_READ_AFTER_ACTION);
     }
 
     @Cuando("consulta los detalles de su reserva")
     public void retrieveBookingDetails() {
-        miguel.asksFor(TheBooking.withId(ownBookingId()));
-        miguel.remember(BOOKING_DETAILS_RESPONSE, miguel.asksFor(TheLastResponse.raw()));
+        miguel.remember(BOOKING_DETAILS_RESPONSE, miguel.asksFor(TheBooking.responseFor(ownBookingId())));
     }
 
     // ---------- Entonces (no HTTP: stored evidence only) ----------
@@ -182,6 +179,12 @@ public class BookingSteps {
         return UpdateBooking.of(ownBookingId(), updatedBookingDetails);
     }
 
+    /** Stores the modification response and declares the read of the booking state that follows it (ADR-22). */
+    private void recordUpdateOutcome(String observation) {
+        miguel.remember(UPDATE_RESPONSE, miguel.asksFor(TheLastResponse.raw()));
+        observations.after(observation, ownBookingState(), BOOKING_STATE_AFTER_ACTION);
+    }
+
     /** New valid details that keep the first name, so the cleanup still recognizes the booking as Miguel's. */
     private Booking newDetailsForOwnBooking() {
         return testData.aBookingWithFirstName(miguel.<Booking>recall(OWN_BOOKING).getFirstName());
@@ -191,12 +194,8 @@ public class BookingSteps {
         return TheBooking.withId(ownBookingId());
     }
 
-    private Question<Response> readingOwnBooking() {
-        int bookingId = ownBookingId();
-        return Question.about("reading booking " + bookingId, actor -> {
-            actor.asksFor(TheBooking.withId(bookingId));
-            return actor.asksFor(TheLastResponse.raw());
-        });
+    private Question<Response> ownBookingReading() {
+        return TheBooking.responseFor(ownBookingId());
     }
 
     private int ownBookingId() {

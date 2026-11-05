@@ -1,6 +1,6 @@
 # Arquitectura del Framework — Restful-Booker API
 
-**Versión 2.3 · 2026-11-05 · Aprobado** (v2.1: verificación de la fase 0 · v2.2: capas HTTP, API Objects y Screenplay; ADR-20 y ADR-21 · v2.3: escenarios, fase explícita de observación posterior y refactorización BDD; ADR-13 precisado, ADR-22 a ADR-24)
+**Versión 2.4 · 2026-11-05 · Aprobado** (v2.1: verificación de la fase 0 · v2.2: capas HTTP, API Objects y Screenplay; ADR-20 y ADR-21 · v2.3: escenarios, fase explícita de observación posterior y refactorización BDD; ADR-13 precisado, ADR-22 a ADR-24 · v2.4: auditoría de trazabilidad Screenplay; detección de Questions HTTP derivada del código, detalles HTTP de la sesión en `TheSentRequests`, `TheBooking.responseFor`; sin cambios de ADR)
 Estrategia: [`test-strategy.md`](../strategy/test-strategy.md) · Requisitos: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Defectos: [`known-defects.md`](../known-defects.md)
 
 ## 1. Capas y responsabilidades
@@ -30,7 +30,7 @@ flowchart TB
 | **Actor** | Ejecutar Tasks y Questions, recordar resultados (`remember`/`recall`) y publicar los steps de Allure | Aserciones |
 | **Abilities** | Entregar API Objects con la spec adecuada (base o autenticada) | Lógica de negocio |
 | **Tasks** | Una escritura de negocio: guardan la `Response` y registran las reservas creadas | Aserciones, lecturas |
-| **Questions** | Una lectura (HTTP o derivada, por ejemplo GPath) que devuelve un valor tipado | Escrituras, aserciones |
+| **Questions** | Una lectura (HTTP o derivada, por ejemplo GPath) que devuelve un valor tipado. Las de memoria (`TheLastResponse`, `TheSentRequests`, `BookingsPricedAbove`) son las únicas permitidas en un `Entonces`; los métodos y rutas HTTP que hacen falta para responder viven aquí, no en los steps | Escrituras, aserciones |
 | **API Objects** | Endpoint, método, parámetros → `Response` sin validar | Aserciones, lógica |
 | **http** | Spec inmutable, autenticación por filtro, enmascarado, adjuntos de Allure, logs `ifValidationFails` | Estado global de Rest Assured |
 | **Expect / ResponseSpecs** | Aserciones reutilizables con prefijos `KD-xx:` y `SLA:` | Peticiones HTTP |
@@ -45,7 +45,7 @@ flowchart TB
 | **Observación posterior** | Hook `@AfterStep` | `asksFor(question)` por cada observación declarada | Justo después del `Cuando`, ejecuta las lecturas declaradas, en orden; cada una es un paso visible en Allure ("Post-action observation: …"). Solo `Question` (lecturas), nunca valida |
 | **Entonces** | Step | `Expect…(recall(clave))` / `ResponseSpecs` | Verifica **evidencia ya almacenada**. **Nunca provoca HTTP** |
 
-Verificado automáticamente: un `Cuando` contiene exactamente una acción HTTP; un `Entonces`, ninguna (`ArchitectureRulesTest`); un solo `Cuando` por escenario, Miguel solo en el primer `Dado` y sin términos técnicos (`FeatureConventionsTest`).
+Verificado automáticamente: un `Cuando` contiene exactamente una acción HTTP; un `Entonces`, ninguna, ni directa ni a través de un helper privado del step (`ArchitectureRulesTest`, que deduce del código qué Questions hacen HTTP: las que usan `CallTheApi` o componen otra Question HTTP); un solo `Cuando` por escenario, Miguel solo en el primer `Dado` y sin términos técnicos (`FeatureConventionsTest`).
 
 Ejemplo (TC-NEG-01; los `Antecedentes` de la regla se ejecutan antes de cada escenario, así que cada uno crea su propia reserva):
 ```gherkin
@@ -132,7 +132,7 @@ src/test/resources/
 |---|---|
 | Configuración | Precedencia `-D` > `RB_*` > `<env>.properties` > `default.properties`; `-Denv=dev\|qa`; URL `https` validada al cargar; credenciales `${RB_USERNAME}`/`${RB_PASSWORD}` validadas **al primer uso** |
 | Autenticación | Task `Authenticate` → token en `UseAnAuthToken` (exige `token`; un 200 con `reason` falla, KD-01). `CallTheApi` usa `SpecFactory.authenticated(token)` (spec nueva + `TokenCookieFilter`, que envía la **cabecera** `Cookie: token=…`, ADR-20). La limpieza usa su propio actor |
-| Datos | `BookingDataFactory` (Datafaker, semilla por escenario, adjunta como "Data seed"); `firstname` único; serialización `NON_NULL`; `InvalidBookingPayload` solo en `src/test` (ronda de escenarios propuestos) |
+| Datos | `BookingDataFactory` (Datafaker, semilla por escenario, adjunta como "Data seed"); `firstname` único; serialización `NON_NULL`; los payloads inválidos de los escenarios negativos (`InvalidBookingPayload`) se crearán solo en `src/test` con la ronda de escenarios propuestos (**aún no implementada**); por eso `CreateBooking`, `UpdateBooking` y `BookingApi` aceptan `Object` |
 | Identidad del token | `TokenFingerprint`: SHA-256 truncado de la cabecera `Cookie` **realmente enviada**, registrado por `SentRequestFilter` en `RecordSentRequests` y mostrado en los adjuntos como `[token sha256:…]`. Permite comparar sesiones sin revelar el token |
 | Excepciones (unchecked) | `AssertionError` → failed · `PreconditionFailedException` / `InfrastructureException` / otras → broken. `ConfigurationException` → Test Defect. Nadie silencia excepciones |
 | Logs | Request/response enmascarados como adjuntos de Allure del paso · `log().ifValidationFails()` por spec, con `Cookie`/`Set-Cookie`/`Authorization` en lista negra y escrito a través de `MaskingOutputStream`, que enmascara `password`/`token` de los bodies línea a línea (ADR-20) · `System.Logger` del JDK para el framework |

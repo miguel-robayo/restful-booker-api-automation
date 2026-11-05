@@ -2,25 +2,38 @@ package com.credibanco.qa.restfulbooker.screenplay.questions;
 
 import com.credibanco.qa.restfulbooker.model.Booking;
 import com.credibanco.qa.restfulbooker.screenplay.abilities.CallTheApi;
+import com.credibanco.qa.restfulbooker.screenplay.core.Actor;
 import com.credibanco.qa.restfulbooker.screenplay.core.Question;
 import io.restassured.response.Response;
 
 import java.util.Optional;
 
 /**
- * {@code GET /booking/{id}} executed when asked. The response is recorded (for status, schema, headers or SLA
- * checks); the booking is returned only when it exists.
+ * {@code GET /booking/{id}} executed when asked. The response is also recorded as the actor's last response.
+ * {@link #withId} answers with the booking, only when it exists; {@link #responseFor} answers with the whole
+ * response, as evidence for status, schema, header or SLA checks, without depending on what was read before.
  */
 public final class TheBooking {
+
+    private static final int FOUND = 200;
 
     private TheBooking() {
     }
 
     public static Question<Optional<Booking>> withId(long bookingId) {
         return Question.about("the booking " + bookingId, actor -> {
-            Response response = CallTheApi.as(actor).publicBookingApiFor(actor).getById(bookingId);
-            actor.recordResponse(response);
-            return response.statusCode() == 200 ? Optional.of(response.as(Booking.class)) : Optional.empty();
+            Response response = read(actor, bookingId);
+            return response.statusCode() == FOUND ? Optional.of(response.as(Booking.class)) : Optional.empty();
         });
+    }
+
+    public static Question<Response> responseFor(long bookingId) {
+        return Question.about("reading booking " + bookingId, actor -> read(actor, bookingId));
+    }
+
+    private static Response read(Actor actor, long bookingId) {
+        Response response = CallTheApi.as(actor).publicBookingApiFor(actor).getById(bookingId);
+        actor.recordResponse(response);
+        return response;
     }
 }

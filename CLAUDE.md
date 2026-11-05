@@ -9,7 +9,7 @@ REST API test automation framework for the public Restful-Booker API (technical 
 Approved design lives in `docs/` and is the source of truth — read it before changing behavior:
 - `docs/analysis/requirements-analysis.md` — requirements (RF/RC/RNF), findings, traceability.
 - `docs/strategy/test-strategy.md` — 24 scenarios (TC-xx, FW-xx), REQ/MON levels, Allure categories, decisions D-01..D-22.
-- `docs/architecture/framework-architecture.md` — layers, Given/When/Then rule, ADR-01..19.
+- `docs/architecture/framework-architecture.md` — layers, Given/When/Then rule, ADR-01..24.
 - `docs/known-defects.md` — API divergences KD-xx and how they are tested.
 
 ## Commands
@@ -31,7 +31,8 @@ Credentials come only from environment variables `RB_USERNAME` / `RB_PASSWORD` (
 
 ## Architecture rules (do not break)
 
-- Features → Step Definitions → Actor → Abilities → Tasks (writes) / Questions (reads) → API Objects → Rest Assured.
+- Features → Step Definitions → Actor → Tasks (writes) / Questions (reads) → Abilities (`CallTheApi`) → API Objects → Rest Assured. API Objects play the role of Screenplay Interactions (ADR-02).
+- HTTP details (paths, methods, sent-request filtering) live in Questions/Tasks, never in step definitions. "Entonces" steps only use stored evidence or memory-only Questions (`TheLastResponse`, `TheSentRequests`, `BookingsPricedAbove`); `ArchitectureRulesTest` derives which Questions are HTTP from the code.
 - `Dado` = prepare context and initial state (`wasAbleTo`, precondition, 2xx required); `Cuando` = **exactly one** action (`attemptsTo` or `asksFor`) that may **declare** post-action evidence via `observations.after(...)`; the `@AfterStep` hook runs those reads right after it (ADR-22); `Entonces` = `Expect` / `ResponseSpecs` on stored evidence — **no HTTP in Then steps**.
 - Step definitions are thin adapters: no Rest Assured, no API Objects, no business rules.
 - Only API Objects build HTTP requests; no generic HTTP "Interactions" layer.
