@@ -22,6 +22,16 @@
         <cucumber.version>7.34.9</cucumber.version>
         <allure.version>2.35.5</allure.version>
         <allure.commandline.version>2.46.1</allure.commandline.version>
+        <rest-assured.version>5.5.7</rest-assured.version>
+        <jackson.version>2.22.4</jackson.version>
+        <lombok.version>1.18.48</lombok.version>
+        <datafaker.version>2.7.0</datafaker.version>
+        <!-- Same version as the slf4j-api brought by allure-java-commons (dependency convergence) -->
+        <slf4j.version>2.0.17</slf4j.version>
+
+        <!-- Convergence pins for json-schema-validator's transitive dependencies -->
+        <jsr305.version>3.0.2</jsr305.version>
+        <libphonenumber.version>9.0.33</libphonenumber.version>
 
         <!-- Plugin versions -->
         <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
@@ -43,6 +53,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- First import wins: Jackson versions also govern json-schema-validator's transitive Jackson -->
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>org.junit</groupId>
                 <artifactId>junit-bom</artifactId>
@@ -64,10 +82,57 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <!-- Annotations-only jar: 2.0.1 (java-json-tools) vs 3.0.2 (Guava 33, json-schema-core) -->
+            <dependency>
+                <groupId>com.google.code.findbugs</groupId>
+                <artifactId>jsr305</artifactId>
+                <version>${jsr305.version}</version>
+            </dependency>
+            <!-- 8.11.1 (json-schema-validator, only for the unused "phone" format) vs 9.0.33 (Datafaker) -->
+            <dependency>
+                <groupId>com.googlecode.libphonenumber</groupId>
+                <artifactId>libphonenumber</artifactId>
+                <version>${libphonenumber.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
     <dependencies>
+        <!-- Framework (src/main, ADR-11): HTTP, contract, mapping, test data -->
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>${rest-assured.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>${rest-assured.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- LocalDate support (ADR-10) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+        <!-- DTO builders (ADR-08); compile-time only -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Maintained JavaFaker fork (D-04) -->
+        <dependency>
+            <groupId>net.datafaker</groupId>
+            <artifactId>datafaker</artifactId>
+            <version>${datafaker.version}</version>
+        </dependency>
+
         <!-- Technical framework tests (FW-01, FW-02) -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -103,6 +168,13 @@
         <dependency>
             <groupId>io.qameta.allure</groupId>
             <artifactId>allure-cucumber7-jvm</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- SLF4J provider for Allure's internal logging: warnings and errors stay visible (simplelogger.properties) -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -174,6 +246,16 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <!-- Explicit processor path: JDK 21+ warns about implicit annotation processing -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
             </plugin>
 
             <!-- Allure categories must sit inside the results directory before the run -->
