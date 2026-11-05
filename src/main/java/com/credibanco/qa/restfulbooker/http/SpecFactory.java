@@ -34,8 +34,14 @@ public final class SpecFactory {
 
     private final String baseUrl;
     private final RestAssuredConfig restAssuredConfig;
+    private final List<Filter> commonFilters;
 
     public SpecFactory(EnvironmentConfig config) {
+        this(config, new Filter[0]);
+    }
+
+    public SpecFactory(EnvironmentConfig config, Filter... commonFilters) {
+        this.commonFilters = List.of(commonFilters);
         this.baseUrl = config.baseUrl().toString();
         this.restAssuredConfig = RestAssuredConfig.config()
                 .objectMapperConfig(ObjectMapperConfig.objectMapperConfig()
@@ -61,6 +67,7 @@ public final class SpecFactory {
 
     private RequestSpecBuilder newBuilder(Filter... extraFilters) {
         return new RequestSpecBuilder()
+                .addFilters(commonFilters)
                 .addFilters(List.of(extraFilters))
                 .setBaseUri(baseUrl)
                 .setContentType(ContentType.JSON)

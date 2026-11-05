@@ -92,7 +92,7 @@ public class BookingSearchSteps {
     @Dado("que Miguel tiene un número de reserva que no corresponde a ninguna reserva existente")
     public void chooseNonexistentBookingNumber() {
         long candidateBookingId = config.notFoundBookingId();
-        int highestExistingId = Preconditions.present(miguel.asksFor(HighestBookingId.current()),
+        int highestExistingId = Preconditions.obtained(() -> miguel.asksFor(HighestBookingId.current()),
                 "the booking list must be readable to verify the candidate number");
         AllureReporter.attach("Nonexistent booking number check", "Candidate: " + candidateBookingId
                 + "\nHighest existing id: " + highestExistingId + "\nRule: candidate > highest existing id");
@@ -131,6 +131,11 @@ public class BookingSearchSteps {
 
     @Entonces("solo se identifican las reservas que superan el valor de referencia")
     public void verifyOnlyBookingsAboveReferenceValueIdentified() {
+        Set<Integer> evaluatedBookingIds = miguel.<List<BookingResponse>>recall(FOUND_BOOKING_DETAILS).stream()
+                .map(BookingResponse::getBookingId)
+                .collect(Collectors.toSet());
+        assertEquals(createdBookingsById().keySet(), evaluatedBookingIds,
+                "the selection must be evaluated over the details of every one of Miguel's bookings");
         int referenceValue = config.queryPriceThreshold();
         Set<Integer> expectedBookingIds = createdBookingsById().entrySet().stream()
                 .filter(entry -> entry.getValue().getTotalPrice() > referenceValue)

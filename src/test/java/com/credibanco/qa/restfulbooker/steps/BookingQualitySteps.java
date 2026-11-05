@@ -4,6 +4,7 @@ import com.credibanco.qa.restfulbooker.config.EnvironmentConfig;
 import com.credibanco.qa.restfulbooker.context.ScenarioContext;
 import com.credibanco.qa.restfulbooker.screenplay.core.Actor;
 import com.credibanco.qa.restfulbooker.support.Expect;
+import com.credibanco.qa.restfulbooker.support.HttpStatus;
 import com.credibanco.qa.restfulbooker.support.ResponseSpecs;
 import io.cucumber.java.es.Entonces;
 import io.restassured.response.Response;
@@ -35,20 +36,26 @@ public class BookingQualitySteps {
 
     @Entonces("la información está disponible dentro del tiempo máximo acordado")
     public void verifyResponseTimeWithinAgreedMaximum() {
-        Expect.sla(bookingDetailsResponse(), config.slaBookingGetMs(), MEASURED_OPERATION);
+        Expect.sla(obtainedBookingDetails(), config.slaBookingGetMs(), MEASURED_OPERATION);
     }
 
     @Entonces("la información se entrega en el formato y la codificación acordados")
     public void verifyAgreedFormatAndEncoding() {
-        bookingDetailsResponse().then().spec(ResponseSpecs.contentType(AGREED_CONTENT_TYPE));
+        obtainedBookingDetails().then().spec(ResponseSpecs.contentType(AGREED_CONTENT_TYPE));
     }
 
     @Entonces("la respuesta identifica el servidor que la emite")
     public void verifyServerIdentified() {
-        Expect.headerPresent(bookingDetailsResponse(), SERVER_HEADER);
+        Expect.headerPresent(obtainedBookingDetails(), SERVER_HEADER);
     }
 
     private Response bookingDetailsResponse() {
         return miguel.recall(BOOKING_DETAILS_RESPONSE);
+    }
+
+    private Response obtainedBookingDetails() {
+        Response response = bookingDetailsResponse();
+        Expect.status(response, HttpStatus.OK, MEASURED_OPERATION);
+        return response;
     }
 }

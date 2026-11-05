@@ -6,6 +6,9 @@ import com.credibanco.qa.restfulbooker.model.AuthResponse;
 import com.credibanco.qa.restfulbooker.model.Booking;
 import com.credibanco.qa.restfulbooker.model.BookingDates;
 import com.credibanco.qa.restfulbooker.model.BookingResponse;
+import com.credibanco.qa.restfulbooker.screenplay.core.Actor;
+import com.credibanco.qa.restfulbooker.screenplay.questions.TheBooking;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -24,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -156,6 +160,39 @@ class ModelSerializationTest {
         assertAll(
                 () -> assertNull(response.getToken()),
                 () -> assertEquals("Bad credentials", response.getReason()));
+    }
+
+    @Test
+    @DisplayName("H-04: rejects a price sent as text instead of converting it to a number")
+    void rejectsPriceAsString() {
+        String json = MAPPER.valueToTree(sampleBooking()).toString().replace("\"totalprice\":321", "\"totalprice\":\"321\"");
+
+        assertThrows(JsonProcessingException.class, () -> MAPPER.readValue(json, Booking.class));
+    }
+
+    @Test
+    @DisplayName("H-04: rejects a decimal price instead of truncating it to an integer")
+    void rejectsDecimalPrice() {
+        String json = MAPPER.valueToTree(sampleBooking()).toString().replace("\"totalprice\":321", "\"totalprice\":321.7");
+
+        assertThrows(JsonProcessingException.class, () -> MAPPER.readValue(json, Booking.class));
+    }
+
+    @Test
+    @DisplayName("H-04: rejects a deposit flag sent as text instead of converting it to a boolean")
+    void rejectsDepositAsString() {
+        String json = MAPPER.valueToTree(sampleBooking()).toString().replace("\"depositpaid\":true", "\"depositpaid\":\"true\"");
+
+        assertThrows(JsonProcessingException.class, () -> MAPPER.readValue(json, Booking.class));
+    }
+
+    @Test
+    @DisplayName("H-04: responses read through Rest Assured use the same strict mapping")
+    void restAssuredUsesStrictMapping() {
+        String json = MAPPER.valueToTree(sampleBooking()).toString().replace("\"totalprice\":321", "\"totalprice\":\"321\"");
+        Actor actor = new StubbedApi().on("GET", "/booking/7", 200, json).actor("Guest");
+
+        assertThrows(RuntimeException.class, () -> actor.asksFor(TheBooking.withId(7)));
     }
 
     private static Set<String> fieldNames(JsonNode node) {

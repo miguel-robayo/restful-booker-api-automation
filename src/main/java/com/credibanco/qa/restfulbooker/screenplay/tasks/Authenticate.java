@@ -8,6 +8,8 @@ import com.credibanco.qa.restfulbooker.screenplay.core.Actor;
 import com.credibanco.qa.restfulbooker.screenplay.core.Performable;
 import io.restassured.response.Response;
 
+import java.util.List;
+
 /**
  * {@code POST /auth}. A returned token becomes the actor's {@link UseAnAuthToken}. The API answers 200 even for bad
  * credentials (KD-01), so success means "a token was issued", not just "2xx".
@@ -17,7 +19,6 @@ public final class Authenticate implements Performable {
     private static final String TOKEN = "token";
 
     private final AuthRequest credentials;
-    private boolean tokenIssued;
 
     private Authenticate(AuthRequest credentials) {
         this.credentials = credentials;
@@ -38,15 +39,14 @@ public final class Authenticate implements Performable {
         Response response = CallTheApi.as(actor).authApiFor(actor).createToken(credentials);
         actor.recordResponse(response);
         String token = issuedToken(response);
-        tokenIssued = token != null;
-        if (tokenIssued) {
+        if (token != null) {
             actor.can(UseAnAuthToken.withToken(token));
         }
     }
 
     @Override
-    public boolean succeededFor(Actor actor) {
-        return Performable.super.succeededFor(actor) && tokenIssued;
+    public boolean succeededWith(List<Response> ownResponses) {
+        return Performable.super.succeededWith(ownResponses) && issuedToken(ownResponses.getLast()) != null;
     }
 
     private static String issuedToken(Response response) {

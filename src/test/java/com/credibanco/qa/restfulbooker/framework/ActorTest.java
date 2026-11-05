@@ -95,7 +95,7 @@ class ActorTest {
             }
 
             @Override
-            public boolean succeededFor(Actor actor) {
+            public boolean succeededWith(List<io.restassured.response.Response> ownResponses) {
                 return false;
             }
         };
@@ -140,6 +140,76 @@ class ActorTest {
         assertAll(
                 () -> assertEquals(List.of(new TrackCreatedBookings.CreatedBooking(7, "Lamar-abc")), tracker.created()),
                 () -> assertThrows(UnsupportedOperationException.class, () -> tracker.created().clear()));
+    }
+
+    @Test
+    @DisplayName("a precondition is not satisfied by a successful response of an earlier call")
+    void ignoresResponsesOfEarlierCalls() {
+        Actor actor = Actor.named("Guest");
+        actor.asksFor(Question.about("an earlier read", reader -> {
+            reader.recordResponse(response(200));
+            return null;
+        }));
+
+        PreconditionFailedException error = assertThrows(PreconditionFailedException.class,
+                () -> actor.wasAbleTo(doingNothing()));
+
+        assertTrue(error.getMessage().contains("no response"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("a precondition that received no response does not succeed")
+    void failsWithoutOwnResponse() {
+        assertThrows(PreconditionFailedException.class, () -> Actor.named("Guest").wasAbleTo(doingNothing()));
+    }
+
+    @Test
+    @DisplayName("a precondition fails when any of its own responses is not successful")
+    void failsWhenAnyOwnResponseFailed() {
+        Performable failsThenSucceeds = actor -> {
+            actor.recordResponse(response(500));
+            actor.recordResponse(response(200));
+        };
+
+        PreconditionFailedException error = assertThrows(PreconditionFailedException.class,
+                () -> Actor.named("Guest").wasAbleTo(failsThenSucceeds));
+
+        assertTrue(error.getMessage().contains("HTTP 500"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("a precondition succeeds on its own 2xx even after an earlier error")
+    void succeedsOnOwnResponseAfterEarlierError() {
+        Actor actor = Actor.named("Guest");
+        actor.attemptsTo(recordingResponse(500));
+
+        actor.wasAbleTo(recordingResponse(201));
+
+        assertEquals(201, actor.lastResponse().orElseThrow().statusCode());
+    }
+
+    @Test
+    @DisplayName("a nested precondition counts for itself and for the action that contains it")
+    void nestedPreconditionsSeeTheirOwnResponses() {
+        Actor actor = Actor.named("Guest");
+        Performable outer = performer -> performer.wasAbleTo(recordingResponse(201));
+
+        actor.wasAbleTo(outer);
+
+        assertThrows(PreconditionFailedException.class, () -> actor.wasAbleTo(doingNothing()));
+    }
+
+    private static Performable doingNothing() {
+        return actor -> {
+        };
+    }
+
+    private static Performable recordingResponse(int status) {
+        return actor -> actor.recordResponse(response(status));
+    }
+
+    private static io.restassured.response.Response response(int status) {
+        return StubbedApi.response(status, "application/json", "{}");
     }
 
     private static Performable recording(String name, List<String> performed) {

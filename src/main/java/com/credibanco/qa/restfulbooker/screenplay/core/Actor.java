@@ -1,14 +1,19 @@
 package com.credibanco.qa.restfulbooker.screenplay.core;
 
-import com.credibanco.qa.restfulbooker.http.SensitiveDataMasker;
+import com.credibanco.qa.restfulbooker.http.ResponseSummary;
 import com.credibanco.qa.restfulbooker.reporting.AllureReporter;
 import io.restassured.response.Response;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * The scenario's protagonist (ADR-13): {@link #wasAbleTo} prepares preconditions, {@link #attemptsTo} performs the
@@ -18,11 +23,10 @@ import java.util.Optional;
  */
 public final class Actor {
 
-    private static final int MAX_BODY_IN_MESSAGE = 300;
-
     private final String name;
     private final Map<Class<? extends Ability>, Ability> abilities = new HashMap<>();
     private final Map<String, Object> memory = new HashMap<>();
+    private final Deque<List<Response>> openPreconditions = new ArrayDeque<>();
     private Response lastResponse;
 
     private Actor(String name) {
@@ -64,19 +68,37 @@ public final class Actor {
      */
     public void wasAbleTo(Performable... actions) {
         for (Performable action : actions) {
-            try {
-                AllureReporter.step(name + " was able to " + action, () -> action.performAs(this));
-            } catch (PreconditionFailedException failure) {
+            List<Response> ownResponses = perform(action);
+            if (!succeeded(action, ownResponses)) {
+                throw new PreconditionFailedException(action + " did not succeed: " + describe(ownResponses));
+            }
+        }
+    }
+
+    private List<Response> perform(Performable action) {
+        List<Response> ownResponses = new ArrayList<>();
+        openPreconditions.push(ownResponses);
+        try {
+            AllureReporter.step(name + " was able to " + action, () -> action.performAs(this));
+        } catch (PreconditionFailedException failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            if (isNetworkFailure(failure)) {
                 throw failure;
-            } catch (RuntimeException failure) {
-                if (isNetworkFailure(failure)) {
-                    throw failure;
-                }
-                throw new PreconditionFailedException(action + " could not be completed: " + failure.getMessage(), failure);
             }
-            if (!action.succeededFor(this)) {
-                throw new PreconditionFailedException(action + " did not succeed: " + describeLastResponse());
-            }
+            throw new PreconditionFailedException(action + " could not be completed: " + failure.getMessage(), failure);
+        } finally {
+            openPreconditions.pop();
+        }
+        return List.copyOf(ownResponses);
+    }
+
+    private static boolean succeeded(Performable action, List<Response> ownResponses) {
+        try {
+            return action.succeededWith(ownResponses);
+        } catch (RuntimeException unreadable) {
+            throw new PreconditionFailedException(action + " returned a response that could not be interpreted: "
+                    + describe(ownResponses), unreadable);
         }
     }
 
@@ -99,6 +121,7 @@ public final class Actor {
     /** Called by Tasks and Questions after every HTTP call. */
     public void recordResponse(Response response) {
         this.lastResponse = response;
+        openPreconditions.forEach(ownResponses -> ownResponses.add(response));
     }
 
     public Optional<Response> lastResponse() {
@@ -114,15 +137,10 @@ public final class Actor {
         return name;
     }
 
-    private String describeLastResponse() {
-        return lastResponse()
-                .map(response -> "HTTP " + response.statusCode() + " "
-                        + truncate(SensitiveDataMasker.maskBody(response.asString())))
-                .orElse("no response recorded");
-    }
-
-    private static String truncate(String text) {
-        return text.length() <= MAX_BODY_IN_MESSAGE ? text : text.substring(0, MAX_BODY_IN_MESSAGE) + "…";
+    private static String describe(List<Response> ownResponses) {
+        return ownResponses.isEmpty()
+                ? "it received no response"
+                : ownResponses.stream().map(ResponseSummary::of).collect(Collectors.joining(" | "));
     }
 
     private static boolean isNetworkFailure(Throwable failure) {

@@ -22,7 +22,6 @@ import java.util.Optional;
 public final class BookingCleaner {
 
     private static final int DELETED = 201;
-    private static final int NOT_FOUND = 404;
 
     private final SpecFactory specs;
 
@@ -49,10 +48,7 @@ public final class BookingCleaner {
         try {
             Optional<Booking> current = cleaner.asksFor(TheBooking.withId(booking.bookingId()));
             if (current.isEmpty()) {
-                int status = cleaner.asksFor(TheLastResponse.statusCode());
-                return status == NOT_FOUND
-                        ? outcome(booking, Status.ALREADY_GONE, "already deleted or removed by an API reset")
-                        : pending(booking, "ownership check answered HTTP " + status);
+                return outcome(booking, Status.ALREADY_GONE, "already deleted or removed by an API reset");
             }
             if (!booking.firstName().equals(current.get().getFirstName())) {
                 return outcome(booking, Status.NOT_OURS, "id reused by another booking after an API reset; not deleted");

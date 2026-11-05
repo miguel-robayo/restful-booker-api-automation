@@ -65,7 +65,8 @@ public class BookingSteps {
 
     @Dado("conoce el estado actual de su reserva")
     public void retrieveInitialBookingState() {
-        Optional<Booking> currentBooking = miguel.asksFor(TheBooking.withId(ownBookingId()));
+        Optional<Booking> currentBooking = Preconditions.obtained(() -> miguel.asksFor(TheBooking.withId(ownBookingId())),
+                "the own booking " + ownBookingId() + " must be readable before the action");
         miguel.remember(INITIAL_BOOKING_STATE, Preconditions.present(currentBooking,
                 "the own booking " + ownBookingId() + " must exist before the action"));
     }

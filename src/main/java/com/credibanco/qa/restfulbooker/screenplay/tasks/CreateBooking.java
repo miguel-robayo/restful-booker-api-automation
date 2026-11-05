@@ -7,6 +7,8 @@ import com.credibanco.qa.restfulbooker.screenplay.core.Actor;
 import com.credibanco.qa.restfulbooker.screenplay.core.Performable;
 import io.restassured.response.Response;
 
+import java.util.List;
+
 /**
  * {@code POST /booking}. A created booking is tracked for cleanup straight from the raw response, before any step
  * asserts on it (D-12).
@@ -34,14 +36,23 @@ public final class CreateBooking implements Performable {
         trackIfCreated(actor, response);
     }
 
+    @Override
+    public boolean succeededWith(List<Response> ownResponses) {
+        return Performable.super.succeededWith(ownResponses) && createdBookingId(ownResponses.getLast()) != null;
+    }
+
     private static void trackIfCreated(Actor actor, Response response) {
         if (response.statusCode() / 100 != 2 || !actor.hasAbilityTo(TrackCreatedBookings.class)) {
             return;
         }
-        Integer bookingId = response.path(BOOKING_ID);
+        Integer bookingId = createdBookingId(response);
         if (bookingId != null) {
             TrackCreatedBookings.as(actor).track(bookingId, response.path(FIRST_NAME));
         }
+    }
+
+    private static Integer createdBookingId(Response response) {
+        return response.path(BOOKING_ID);
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.credibanco.qa.restfulbooker.model.Booking;
 import com.credibanco.qa.restfulbooker.screenplay.abilities.CallTheApi;
 import com.credibanco.qa.restfulbooker.screenplay.core.Actor;
 import com.credibanco.qa.restfulbooker.screenplay.core.Question;
+import com.credibanco.qa.restfulbooker.screenplay.core.UnexpectedResponseException;
 import io.restassured.response.Response;
 
 import java.util.Optional;
@@ -16,6 +17,7 @@ import java.util.Optional;
 public final class TheBooking {
 
     private static final int FOUND = 200;
+    private static final int NOT_FOUND = 404;
 
     private TheBooking() {
     }
@@ -23,7 +25,12 @@ public final class TheBooking {
     public static Question<Optional<Booking>> withId(long bookingId) {
         return Question.about("the booking " + bookingId, actor -> {
             Response response = read(actor, bookingId);
-            return response.statusCode() == FOUND ? Optional.of(response.as(Booking.class)) : Optional.empty();
+            return switch (response.statusCode()) {
+                case FOUND -> Optional.of(response.as(Booking.class));
+                case NOT_FOUND -> Optional.empty();
+                default -> throw new UnexpectedResponseException("GET /booking/" + bookingId, response,
+                        "HTTP " + FOUND + " (found) or " + NOT_FOUND + " (does not exist)");
+            };
         });
     }
 

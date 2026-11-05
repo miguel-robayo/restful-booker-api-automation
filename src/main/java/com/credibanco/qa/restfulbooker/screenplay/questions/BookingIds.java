@@ -2,6 +2,7 @@ package com.credibanco.qa.restfulbooker.screenplay.questions;
 
 import com.credibanco.qa.restfulbooker.screenplay.abilities.CallTheApi;
 import com.credibanco.qa.restfulbooker.screenplay.core.Question;
+import com.credibanco.qa.restfulbooker.screenplay.core.UnexpectedResponseException;
 import io.restassured.response.Response;
 
 import java.util.List;
@@ -14,6 +15,7 @@ public final class BookingIds {
 
     private static final String FIRST_NAME = "firstname";
     private static final String IDS = "bookingid";
+    private static final int OK = 200;
 
     private BookingIds() {
     }
@@ -26,7 +28,10 @@ public final class BookingIds {
         return Question.about("the booking ids matching " + filters, actor -> {
             Response response = CallTheApi.as(actor).publicBookingApiFor(actor).findIds(filters);
             actor.recordResponse(response);
-            return response.statusCode() == 200 ? response.jsonPath().getList(IDS, Integer.class) : List.of();
+            if (response.statusCode() != OK) {
+                throw new UnexpectedResponseException("GET /booking " + filters, response, "HTTP " + OK);
+            }
+            return response.jsonPath().getList(IDS, Integer.class);
         });
     }
 }
