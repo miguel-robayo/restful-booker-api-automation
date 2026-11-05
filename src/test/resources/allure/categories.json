@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Known Defect",
+    "description": "A REQ assertion on an open known defect failed, or a MON scenario detected a behavior change. Review docs/known-defects.md.",
+    "matchedStatuses": ["failed"],
+    "messageRegex": "(?s)\\s*KD-\\d+:.*"
+  },
+  {
+    "name": "Performance (SLA)",
+    "description": "A non-functional performance requirement (SLA) is not met. Not a functional defect.",
+    "matchedStatuses": ["failed"],
+    "messageRegex": "(?s)\\s*SLA:.*"
+  },
+  {
+    "name": "Product Defect",
+    "description": "A functional requirement is not met. Performance (SLA:) failures are excluded on purpose.",
+    "matchedStatuses": ["failed"],
+    "messageRegex": "(?s)(?!\\s*KD-\\d+:)(?!\\s*SLA:).*"
+  },
+  {
+    "name": "Precondition",
+    "description": "The scenario could not be prepared (Given step). Check /auth and POST /booking.",
+    "matchedStatuses": ["broken"],
+    "messageRegex": "(?s)\\s*PRECONDITION:.*"
+  },
+  {
+    "name": "Infrastructure",
+    "description": "The environment is unavailable. Re-run the whole execution later.",
+    "matchedStatuses": ["broken"],
+    "messageRegex": "(?s)\\s*INFRA:.*"
+  },
+  {
+    "name": "Infrastructure",
+    "description": "The environment is unavailable. Re-run the whole execution later.",
+    "matchedStatuses": ["broken"],
+    "traceRegex": "(?s).*(java\\.net\\.ConnectException|java\\.net\\.SocketTimeoutException|java\\.net\\.UnknownHostException|javax\\.net\\.ssl\\.SSLException|org\\.apache\\.http\\.conn\\.HttpHostConnectException|org\\.apache\\.http\\.conn\\.ConnectTimeoutException).*"
+  },
+  {
+    "name": "Test Defect",
+    "description": "Error in the automation code or its configuration.",
+    "matchedStatuses": ["broken"],
+    "messageRegex": "(?s)(?!\\s*PRECONDITION:)(?!\\s*INFRA:).*"
+  }
+]
