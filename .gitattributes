@@ -1,0 +1,15 @@
+# Normalize line endings in the repository regardless of local core.autocrlf
+* text=auto eol=lf
+
+# Windows scripts keep CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Unix wrapper must stay LF
+mvnw text eol=lf
+
+# Binaries
+*.jar binary
+*.png binary
+*.jpg binary

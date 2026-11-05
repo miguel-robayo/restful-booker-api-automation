@@ -1,0 +1,27 @@
+# Build output
+target/
+
+# Allure (when generated outside target/)
+allure-results/
+allure-report/
+.allure/
+
+# Logs
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local secrets (credentials come from environment variables, never from files)
+.env
+*.local.properties
