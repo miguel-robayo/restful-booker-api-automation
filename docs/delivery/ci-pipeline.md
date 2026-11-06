@@ -32,7 +32,7 @@ flowchart LR
 |---|---|
 | Instalar Java 21 | `actions/setup-java@v4` con `distribution: temurin` y `java-version: '21'`. Además, el Enforcer del `pom.xml` falla con otro JDK |
 | Configurar Maven | Maven Wrapper (`./mvnw`, Maven 3.9.14 fijado en `.mvn/wrapper`) con `MAVEN_ARGS: -B -ntp` (modo batch, sin logs de descarga) y `cache: maven` sobre `~/.m2/repository` |
-| Ejecutar las pruebas | `main`: `./mvnw clean verify -Denv=$TEST_ENV` → los 94 tests técnicos y los 11 escenarios `not @known-defect`. `known-defects`: `-Pknown-defects` (D-21) |
+| Ejecutar las pruebas | `main`: `./mvnw clean verify -Denv=$TEST_ENV` → los 95 tests técnicos y los 11 escenarios `not @known-defect`. `known-defects`: `-Pknown-defects` (D-21) |
 | Generar resultados Allure | `allure-cucumber7-jvm` escribe `target/allure-results` durante las pruebas; `./mvnw allure:report` genera el HTML en `target/site/allure-maven-plugin` |
 | Conservar evidencias | `actions/upload-artifact@v4`, 30 días: `allure-results`, reporte HTML, `surefire-reports`, `cleanup/` |
 | Secretos | `RB_USERNAME` y `RB_PASSWORD` desde GitHub Secrets (sección 3) |

@@ -1,8 +1,8 @@
 # Estrategia de Pruebas — Restful-Booker API
 
-**Versión 3.6 · 2026-11-05 · Aprobado · Referencia para la implementación**
+**Versión 3.7 · 2026-11-05 · Aprobado · Referencia para la implementación**
 Requisitos y trazabilidad: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Divergencias: [`known-defects.md`](../known-defects.md) · Arquitectura: [`framework-architecture.md`](../architecture/framework-architecture.md)
-*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21). v3.3: categoría Performance (SLA) y resultados de la verificación de la fase 0. v3.4: sintaxis GPath de D-01 verificada. v3.5: convenciones BDD (§3.1), fase explícita de observación posterior (ADR-22), TC-AUTH-02 en dos escenarios y verificaciones de la fase de escenarios. v3.6: ruta real del consolidado de limpieza (§4).*
+*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21). v3.3: categoría Performance (SLA) y resultados de la verificación de la fase 0. v3.4: sintaxis GPath de D-01 verificada. v3.5: convenciones BDD (§3.1), fase explícita de observación posterior (ADR-22), TC-AUTH-02 en dos escenarios y verificaciones de la fase de escenarios. v3.6: ruta real del consolidado de limpieza (§4). v3.7: C-5 pasa a verificación automática en `ArchitectureRulesTest`.*
 
 ## 1. Objetivo y alcance
 
@@ -54,7 +54,7 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 | C-2 | Los códigos HTTP no aparecen en el Gherkin: son constantes con nombre en Java (`HttpStatus`). Los valores esperados no cambian | `FeatureConventionsTest`: ningún código de 3 cifras |
 | C-3 | Lenguaje de negocio: sin token, HTTP, JSON, schema, GPath, SLA, Builder, cabeceras… Las notas técnicas de cada escenario viven en esta estrategia (§7, "Notas técnicas") | `FeatureConventionsTest` (títulos, pasos y comentarios) |
 | C-4 | Un único actor, **Miguel**, presentado en el primer `Dado` que se ejecuta (el de `Antecedentes` si existe, si no el del escenario); después se omite el sujeto | `FeatureConventionsTest` (sobre los pasos efectivos: antecedentes de la característica + de la regla + del escenario) |
-| C-5 | Métodos Java: verbo imperativo para `Dado`/`Cuando` (`registerBooking`) y `verify…` para `Entonces` | Revisión |
+| C-5 | Métodos Java: verbo imperativo para `Dado`/`Cuando` (`registerBooking`) y `verify…` para `Entonces` | `ArchitectureRulesTest`: los métodos `@Entonces` empiezan por `verify`; los `@Dado`/`@Cuando`, no. Que sea un verbo imperativo, por revisión |
 | C-6 | Un único `Cuando` por escenario (un `Y` después del `Cuando` también es acción) y etiquetas `@TC-*` + `@esc-*` en todos | `FeatureConventionsTest` |
 | C-7 | **`Antecedentes`** solo para precondiciones de negocio comunes a **todos** los escenarios de su característica o regla: únicamente `Dado`/`Y`, máximo 4 pasos, nunca la acción ni resultados. Se ejecutan antes de cada escenario, por lo que cada uno sigue creando sus propios datos y su propia sesión. No se usan si los contextos difieren ni solo para ahorrar líneas | `FeatureConventionsTest` (solo contexto, máximo 4 pasos); el resto, revisión |
 | C-8 | **`Regla`** agrupa escenarios que son ejemplos de una misma regla de negocio, y puede tener sus propios `Antecedentes`; no se usa como agrupador decorativo. **`Esquema del escenario`** solo cuando cambian únicamente los datos y no el comportamiento; cada `@TC-*` conserva su escenario | Revisión |

@@ -2,11 +2,11 @@
 
 Framework de automatización de la API REST pública [Restful-Booker](https://restful-booker.herokuapp.com/apidoc/index.html), construido con **Java 21, Maven, Rest Assured 5, Cucumber 7 (Gherkin en español), Screenplay propio, API Objects y Allure 2**.
 
-Cubre los **cinco escenarios** del documento de la prueba técnica (11 escenarios de Cucumber) y **94 tests técnicos** del propio framework (JUnit 5, sin red).
+Cubre los **cinco escenarios** del documento de la prueba técnica (11 escenarios de Cucumber) y **95 tests técnicos** del propio framework (JUnit 5, sin red).
 
 | | |
 |---|---|
-| Estado | ✅ 105/105 tests en verde contra la API real (`-Denv=qa`, 2026-11-05) · [evidencias](docs/delivery/execution-evidence.md) |
+| Estado | ✅ 106/106 tests en verde contra la API real (`-Denv=qa`, 2026-11-05) · [evidencias](docs/delivery/execution-evidence.md) |
 | Escenarios | [Documentación de los cinco escenarios](docs/delivery/scenarios.md) |
 | Reporte | [Allure](#8-reportes-allure), con capturas del reporte real |
 | CI (opcional) | [Pipeline de GitHub Actions](docs/delivery/ci-pipeline.md), preparado y sin activar: no es un requisito de la prueba |
@@ -280,10 +280,10 @@ Ejecución real del 2026-11-05 con JDK 21.0.13 y Maven 3.9.14 contra la API púb
 
 | Comando | Resultado |
 |---|---|
-| `mvn clean test -Denv=qa` | ✅ `Tests run: 105, Failures: 0, Errors: 0, Skipped: 0` · BUILD SUCCESS |
+| `mvn clean test -Denv=qa` | ✅ `Tests run: 106, Failures: 0, Errors: 0, Skipped: 0` · BUILD SUCCESS |
 | `mvn test -Dtest=BookingCreationTests -Denv=qa` | ✅ `Tests run: 1, Failures: 0` · BUILD SUCCESS |
 | `mvn allure:report` / `mvn allure:serve` | ✅ 11 escenarios *passed* · servidor local iniciado |
-| `./mvnw clean verify -Denv=qa` (comando del CI) | ✅ 105/105 · BUILD SUCCESS |
+| `./mvnw clean verify -Denv=qa` (comando del CI) | ✅ 106/106 · BUILD SUCCESS |
 | Fallo forzado (`-Dsla.booking.get.ms=1`) | ✅ exit 1 · BUILD FAILURE · categoría *Performance (SLA)* |
 | Incidencia real: timeout de la API pública en una ejecución | ⚠️ 1 *broken* clasificado como *Infrastructure*; se repitió la ejecución y dio 104/104 |
 

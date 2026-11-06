@@ -2,7 +2,7 @@
 
 **Ejecución real · 2026-11-05 (UTC-5)** · Rama `fix/phase-1-false-positives` · API pública `https://restful-booker.herokuapp.com` · ambiente `qa`.
 
-> La sección 2 se actualizó con una nueva ejecución real del mismo día, hecha después de dos ajustes: el token de `POST /auth` se obtiene deserializando a `AuthResponse`, y el SLA se valida con `time(lessThan(...))` de Rest Assured. Las capturas de Allure y la tabla por escenario (§3) son de la ejecución de las 19:23; en la nueva ejecución los 11 escenarios volvieron a pasar, y el fallo forzado de la §6 siguió fallando con el prefijo `SLA:` (`took 259 ms; required < 1 ms`).
+> La sección 2 se actualizó con una nueva ejecución real del mismo día, hecha después de dos ajustes: el token de `POST /auth` se obtiene deserializando a `AuthResponse`, y el SLA se valida con `time(lessThan(...))` de Rest Assured. Después se agregó la regla de nombres C-5 a `ArchitectureRulesTest` (105 → 106 tests). Las capturas de Allure y la tabla por escenario (§3) son de la ejecución de las 19:23; en la nueva ejecución los 11 escenarios volvieron a pasar, y el fallo forzado de la §6 siguió fallando con el prefijo `SLA:` (`took 259 ms; required < 1 ms`).
 
 ## 1. Entorno
 
@@ -20,23 +20,23 @@
 
 | # | Comando | Resultado | Duración |
 |---|---|---|---|
-| 1 | `mvn clean test -Denv=qa` | ✅ `Tests run: 105, Failures: 0, Errors: 0, Skipped: 0` · **BUILD SUCCESS** | 27.1 s |
+| 1 | `mvn clean test -Denv=qa` | ✅ `Tests run: 106, Failures: 0, Errors: 0, Skipped: 0` · **BUILD SUCCESS** | 24.8 s |
 | 2 | `mvn test -Dtest=BookingCreationTests -Denv=qa` | ✅ `Running …runners.BookingCreationTests` · `Tests run: 1, Failures: 0, Errors: 0, Skipped: 0` · **BUILD SUCCESS** | 10.6 s |
 | 3 | `mvn allure:serve` | ✅ `Local preview server started at <http://127.0.0.1:64494>` | — |
 | — | `mvn allure:report` | ✅ `Report successfully generated to …\target\site\allure-maven-plugin` | — |
-| — | `./mvnw clean verify -Denv=qa` | ✅ `Tests run: 105, Failures: 0, Errors: 0, Skipped: 0` · **BUILD SUCCESS** | — |
+| — | `./mvnw clean verify -Denv=qa` | ✅ `Tests run: 106, Failures: 0, Errors: 0, Skipped: 0` · **BUILD SUCCESS** | 26.2 s |
 | — | `mvn clean test -Pknown-defects -Denv=qa` | ✅ BUILD SUCCESS · `Tests run: 11, Skipped: 11`: no hay escenarios `@known-defect` implementados | 17.0 s |
 
-Desglose del comando 1: **94 tests técnicos** de JUnit 5 y **11 escenarios** de Cucumber (`ApiScenariosSuite`).
+Desglose del comando 1: **95 tests técnicos** de JUnit 5 y **11 escenarios** de Cucumber (`ApiScenariosSuite`).
 
 | Clase técnica | Tests | | Clase técnica | Tests |
 |---|---|---|---|---|
 | FW-01 Sensitive data masking | 7 | | Screenplay actor | 16 |
 | FW-02 Configuration resolution | 10 | | Model serialization | 13 |
-| Architecture rules | 9 | | Booking data factory | 8 |
+| Architecture rules | 10 | | Booking data factory | 8 |
 | Feature conventions | 6 | | Spec factory | 4 |
 | HTTP Questions: not found vs. unexpected | 9 | | Tasks as preconditions | 5 |
-| Then steps on incomplete evidence | 7 | | **Total** | **94** |
+| Then steps on incomplete evidence | 7 | | **Total** | **95** |
 
 ## 3. Resultado por escenario (Allure, ejecución final 19:23)
 
