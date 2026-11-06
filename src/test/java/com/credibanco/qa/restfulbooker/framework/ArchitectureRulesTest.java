@@ -1,10 +1,14 @@
 package com.credibanco.qa.restfulbooker.framework;
 
+import io.cucumber.java.es.Cuando;
+import io.cucumber.java.es.Dado;
+import io.cucumber.java.es.Entonces;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -53,6 +57,8 @@ class ArchitectureRulesTest {
             "private\\s+(?:static\\s+)?[\\w<>,?\\[\\]\\s]+?\\s+(\\w+)\\s*\\(");
     /** Questions that only read the actor's memory; used as a sanity check of the HTTP detection. */
     private static final Set<String> MEMORY_ONLY_QUESTIONS = Set.of("TheLastResponse", "TheSentRequests", "BookingsPricedAbove");
+    private static final String STEPS_PACKAGE = "com.credibanco.qa.restfulbooker.steps";
+    private static final String VERIFY_PREFIX = "verify";
 
     @Test
     @DisplayName("nobody writes static RestAssured state")
@@ -80,6 +86,27 @@ class ArchitectureRulesTest {
     @DisplayName("step definitions never use Rest Assured or API Objects directly")
     void stepsAreThinAdapters() {
         assertEquals(List.of(), offending(TEST.resolve("steps"), HTTP_IN_STEPS));
+    }
+
+    @Test
+    @DisplayName("step methods are named by phase: \"verify…\" for \"Entonces\", an imperative verb otherwise (C-5)")
+    void stepMethodsAreNamedByPhase() {
+        List<String> offenders = new ArrayList<>();
+        for (Class<?> steps : stepClasses()) {
+            for (Method method : steps.getDeclaredMethods()) {
+                boolean verifies = method.getName().startsWith(VERIFY_PREFIX);
+                if (method.isAnnotationPresent(Entonces.class) && !verifies) {
+                    offenders.add(steps.getSimpleName() + "." + method.getName() + ": \"Entonces\" must start with "
+                            + VERIFY_PREFIX);
+                }
+                if ((method.isAnnotationPresent(Dado.class) || method.isAnnotationPresent(Cuando.class)) && verifies) {
+                    offenders.add(steps.getSimpleName() + "." + method.getName()
+                            + ": \"Dado\"/\"Cuando\" must use an imperative verb, not " + VERIFY_PREFIX);
+                }
+            }
+        }
+
+        assertEquals(List.of(), offenders);
     }
 
     @Test
@@ -253,6 +280,20 @@ class ArchitectureRulesTest {
             }
         }
         return source.length();
+    }
+
+    private static List<Class<?>> stepClasses() {
+        List<Class<?>> classes = new ArrayList<>();
+        for (Path file : javaFiles(TEST.resolve("steps"))) {
+            String simpleName = file.getFileName().toString().replace(".java", "");
+            try {
+                classes.add(Class.forName(STEPS_PACKAGE + "." + simpleName));
+            } catch (ClassNotFoundException e) {
+                throw new IllegalStateException("Step class not compiled: " + simpleName, e);
+            }
+        }
+        assertTrue(!classes.isEmpty(), "no step classes found under " + TEST.resolve("steps"));
+        return classes;
     }
 
     private static List<Path> javaFiles(Path root) {
