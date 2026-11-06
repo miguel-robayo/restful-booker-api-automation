@@ -2,6 +2,7 @@ package com.credibanco.qa.restfulbooker.screenplay.tasks;
 
 import com.credibanco.qa.restfulbooker.config.EnvironmentConfig;
 import com.credibanco.qa.restfulbooker.model.AuthRequest;
+import com.credibanco.qa.restfulbooker.model.AuthResponse;
 import com.credibanco.qa.restfulbooker.screenplay.abilities.CallTheApi;
 import com.credibanco.qa.restfulbooker.screenplay.abilities.UseAnAuthToken;
 import com.credibanco.qa.restfulbooker.screenplay.core.Actor;
@@ -12,11 +13,10 @@ import java.util.List;
 
 /**
  * {@code POST /auth}. A returned token becomes the actor's {@link UseAnAuthToken}. The API answers 200 even for bad
- * credentials (KD-01), so success means "a token was issued", not just "2xx".
+ * credentials (KD-01), so success means "a token was issued", not just "2xx". The token is read by deserializing the
+ * body into {@link AuthResponse}.
  */
 public final class Authenticate implements Performable {
-
-    private static final String TOKEN = "token";
 
     private final AuthRequest credentials;
 
@@ -53,7 +53,7 @@ public final class Authenticate implements Performable {
         if (response.statusCode() / 100 != 2) {
             return null;
         }
-        String token = response.jsonPath().getString(TOKEN);
+        String token = response.as(AuthResponse.class).getToken();
         return token == null || token.isBlank() ? null : token;
     }
 

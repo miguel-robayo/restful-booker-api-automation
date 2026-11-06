@@ -9,7 +9,9 @@ import io.restassured.builder.ResponseBuilder;
 import io.restassured.config.RestAssuredConfig;
 import io.restassured.filter.FilterContext;
 import io.restassured.filter.OrderedFilter;
+import io.restassured.filter.time.TimingFilter;
 import io.restassured.http.ContentType;
+import io.restassured.internal.RestAssuredResponseImpl;
 import io.restassured.internal.RestAssuredResponseOptionsImpl;
 import io.restassured.response.Response;
 import io.restassured.specification.FilterableRequestSpecification;
@@ -68,6 +70,13 @@ final class StubbedApi implements OrderedFilter {
         headers.forEach(builder::setHeader);
         Response response = builder.build();
         ((RestAssuredResponseOptionsImpl<?>) response).setConfig(RestAssuredConfig.config());
+        return response;
+    }
+
+    /** Gives a built response the client-side time Rest Assured would have measured ({@code time()}). */
+    static Response withMeasuredTime(Response response, long millis) {
+        ((RestAssuredResponseImpl) response).setFilterContextProperties(
+                Map.of(TimingFilter.RESPONSE_TIME_MILLISECONDS, millis));
         return response;
     }
 

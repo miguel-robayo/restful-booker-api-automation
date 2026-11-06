@@ -19,12 +19,14 @@ import static com.credibanco.qa.restfulbooker.context.ScenarioMemory.FOUND_BOOKI
 import static com.credibanco.qa.restfulbooker.context.ScenarioMemory.SELECTED_BOOKING_IDS;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DisplayName("Then steps on incomplete evidence")
 class EvidenceStepsTest {
 
     private static final String AGREED_CONTENT_TYPE = "application/json; charset=utf-8";
     private static final Map<String, String> SERVER = Map.of("Server", "Heroku");
+    private static final long MEASURED_MS_WITHIN_SLA = 150;
     private static final String BOOKING_BODY = """
             {"firstname":"Lamar-abc","lastname":"Smith","totalprice":321,"depositpaid":true,
             "bookingdates":{"checkin":"2027-01-02","checkout":"2027-01-05"},"additionalneeds":"Breakfast"}""";
@@ -35,6 +37,15 @@ class EvidenceStepsTest {
         BookingQualitySteps steps = qualityStepsWith(StubbedApi.response(503, AGREED_CONTENT_TYPE, "{}", SERVER));
 
         assertThrows(AssertionError.class, steps::verifyResponseTimeWithinAgreedMaximum);
+    }
+
+    @Test
+    @DisplayName("a booking without a measured response time does not meet \"available within the agreed time\"")
+    void slaRequiresAMeasuredTime() {
+        BookingQualitySteps steps = qualityStepsWith(StubbedApi.response(200, AGREED_CONTENT_TYPE, BOOKING_BODY, SERVER));
+
+        AssertionError failure = assertThrows(AssertionError.class, steps::verifyResponseTimeWithinAgreedMaximum);
+        assertTrue(failure.getMessage().startsWith("SLA:"), failure.getMessage());
     }
 
     @Test
@@ -56,7 +67,8 @@ class EvidenceStepsTest {
     @Test
     @DisplayName("the quality checks pass on the obtained booking")
     void qualityChecksPassOnTheBooking() {
-        BookingQualitySteps steps = qualityStepsWith(StubbedApi.response(200, AGREED_CONTENT_TYPE, BOOKING_BODY, SERVER));
+        BookingQualitySteps steps = qualityStepsWith(StubbedApi.withMeasuredTime(
+                StubbedApi.response(200, AGREED_CONTENT_TYPE, BOOKING_BODY, SERVER), MEASURED_MS_WITHIN_SLA));
 
         assertDoesNotThrow(() -> {
             steps.verifyResponseTimeWithinAgreedMaximum();
