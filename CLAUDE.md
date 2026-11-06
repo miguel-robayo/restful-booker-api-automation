@@ -21,6 +21,7 @@ JDK 21 is mandatory (Maven Enforcer fails otherwise). Use the wrapper.
 ./mvnw clean test -Denv=dev                 # select environment (dev|qa, default qa)
 ./mvnw test -Pknown-defects                 # separate job: only @known-defect scenarios, own result dirs
 ./mvnw test -Dtest=ConfigResolverTest       # single JUnit test class
+./mvnw test -Dtest=BookingCreationTests -Denv=qa   # only booking_creation.feature (scenario 2); not part of the default includes
 ./mvnw test -Dtest=ApiScenariosSuite -Dcucumber.filter.tags="@TC-NEG-01"   # scenarios of one TC (needs RB_USERNAME/RB_PASSWORD)
 ./mvnw test -Dtest=ApiScenariosSuite -Dcucumber.execution.dry-run=true      # detect undefined/ambiguous steps without calling the API
 ./mvnw allure:serve                         # open report for target/allure-results
