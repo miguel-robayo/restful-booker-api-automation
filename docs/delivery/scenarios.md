@@ -28,7 +28,7 @@ Los cinco escenarios del documento se implementan con **10 casos de prueba** (`@
 
 | Caso | Escenario | Endpoints | Resultado esperado |
 |---|---|---|---|
-| TC-AUTH-01 | Iniciar sesión con credenciales válidas | `POST /auth` | 200, `token` no vacío y deserializado a `AuthResponse`, sin `reason` |
+| TC-AUTH-01 | Iniciar sesión con credenciales válidas | `POST /auth` | 200, `token` no vacío y deserializado a `AuthResponse`, sin `reason`. Ese mismo `token` del POJO es el que `TokenCookieFilter` envía como `Cookie: token=<valor>` |
 | TC-AUTH-02 (a) | Modificar una reserva después de iniciar sesión | `PUT /booking/{id}`, `GET` | 200, el body devuelto es igual al enviado y el `GET` posterior confirma los cambios |
 | TC-AUTH-02 (b) | Cancelar una reserva modificada sin volver a iniciar sesión | `PUT`, `DELETE /booking/{id}`, `GET` | `DELETE` 201 · `GET` 404 · el `PUT` y el `DELETE` usaron el mismo token · un solo `POST /auth` |
 
@@ -113,7 +113,7 @@ Escenario: Identificar sus reservas de valor superior al de referencia
 
 **Notas técnicas:**
 
-- **SLA:** se mide del lado del cliente con Rest Assured, sin reintentos. El tiempo real se adjunta antes de comparar y un fallo lleva el prefijo `SLA:`, que lo lleva a la categoría *Performance (SLA)*.
+- **SLA:** se mide del lado del cliente con Rest Assured, sin reintentos, y se valida con `time(lessThan(...))` (`ResponseSpecs.responseTimeBelow`). Una respuesta sin tiempo medido no cumple el SLA. El tiempo real se adjunta antes de comparar y un fallo lleva el prefijo `SLA:`, que lo lleva a la categoría *Performance (SLA)*.
 - **Headers:** la API no envía headers de seguridad (KD-06, hallazgo). RNF-06 acepta "de seguridad **o** servidor", así que se valida la presencia de `Server`.
 - **Schema:** no incluye restricciones que la documentación de la API no establece, como `additionalProperties` (D-15).
 
