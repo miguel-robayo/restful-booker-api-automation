@@ -1,6 +1,6 @@
 # Arquitectura del Framework — Restful-Booker API
 
-**Versión 2.4 · 2026-11-05 · Aprobado** (v2.1: verificación de la fase 0 · v2.2: capas HTTP, API Objects y Screenplay; ADR-20 y ADR-21 · v2.3: escenarios, fase explícita de observación posterior y refactorización BDD; ADR-13 precisado, ADR-22 a ADR-24 · v2.4: auditoría de trazabilidad Screenplay; detección de Questions HTTP derivada del código, detalles HTTP de la sesión en `TheSentRequests`, `TheBooking.responseFor`; sin cambios de ADR)
+**Versión 2.5 · 2026-11-05 · Aprobado** (v2.1: verificación de la fase 0 · v2.2: capas HTTP, API Objects y Screenplay; ADR-20 y ADR-21 · v2.3: escenarios, fase explícita de observación posterior y refactorización BDD; ADR-13 precisado, ADR-22 a ADR-24 · v2.4: auditoría de trazabilidad Screenplay; detección de Questions HTTP derivada del código, detalles HTTP de la sesión en `TheSentRequests`, `TheBooking.responseFor`; sin cambios de ADR · v2.5: runner `BookingCreationTests` y ruta real del consolidado de limpieza; sin cambios de ADR)
 Estrategia: [`test-strategy.md`](../strategy/test-strategy.md) · Requisitos: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Defectos: [`known-defects.md`](../known-defects.md)
 
 ## 1. Capas y responsabilidades
@@ -82,6 +82,7 @@ src/main/java/com/credibanco/qa/restfulbooker/
 
 src/test/java/com/credibanco/qa/restfulbooker/
 ├── runners/     ApiScenariosSuite   (@Suite · @IncludeEngines("cucumber") · @SelectPackages("features"))
+│                BookingCreationTests (solo booking_creation.feature; fuera de los includes *Test/*Suite: solo con -Dtest)
 ├── context/     ScenarioContext, ScenarioMemory, PostActionObservations
 ├── hooks/       ScenarioHooks
 ├── steps/       AuthenticationSteps, BookingSteps, BookingSearchSteps, BookingQualitySteps
@@ -123,7 +124,7 @@ src/test/resources/
 | `@BeforeAll` (una vez) | `EnvironmentHealthCheck` → `GET /ping`; si falla → `InfrastructureException` (`INFRA:`) |
 | Por escenario | PicoContainer crea `ScenarioContext` (Miguel, datos, observaciones) → `@Before` adjunta la semilla → pasos; después de cada paso, `@AfterStep` ejecuta las observaciones que haya declarado el `Cuando` (solo lo hace él) → `@After` (siempre): `BookingCleaner` hace un `GET` de propiedad y un `DELETE` solo si es propia (D-12); si algo queda pendiente, step **broken** con adjunto, sin cambiar el resultado del escenario (D-08) |
 | Pendientes de limpieza | Cada escenario escribe **su propio** archivo en `target/cleanup/<directorio de resultados>/` (nombre único; un directorio por job): sin estado compartido en memoria |
-| `@AfterAll` | `CleanupReport` consolida → `cleanup-pending.json`, panel Environment de Allure (`cleanup.pending.count`) y aviso en consola si hay pendientes |
+| `@AfterAll` | `CleanupReport` consolida → `target/cleanup/<directorio de resultados>/cleanup-pending.json`, panel Environment de Allure (`cleanup.pending.count`) y aviso en consola si hay pendientes |
 | Paralelismo | `cucumber.execution.parallel.enabled=true`, `fixed`, 4 hilos (configurable). Un escenario se ejecuta entero en un hilo con su propio contexto |
 
 ## 6. Configuración, autenticación, datos, errores y logs
@@ -177,6 +178,6 @@ src/test/resources/
 | Paralelismo y aislamiento | ✅ 4 hilos, un `ScenarioContext` distinto por escenario, `@BeforeAll` una sola vez, `@After` tras un paso fallido |
 | Estados y categorías | ✅ failed/broken correctos; cada escenario en una sola categoría. Con cinco categorías, el SLA caía en la categoría interna "Product defects" de Allure → se agregó **Performance (SLA)** |
 | `@issue=KD-xx` | ✅ Enlace de tipo *issue*; navega a `known-defects.md` gracias a `allure.link.issue.pattern` |
-| Selector de features | `@SelectClasspathResource` genera un aviso de Cucumber → se usa `@SelectPackages("features")` |
+| Selector de features | `@SelectClasspathResource` sobre el directorio genera un aviso de Cucumber → se usa `@SelectPackages("features")`. Sobre **un solo archivo** (`BookingCreationTests`, v2.5) no genera aviso (verificado) |
 
 **Verificado después, con la API real:** step broken de limpieza pendiente dentro de un escenario aprobado y panel Environment (ejecución forzada con la limpieza fallida); consolidación concurrente de `target/cleanup/` en 4 ejecuciones en paralelo (0 pendientes); observaciones posteriores visibles en Allure, entre el `Cuando` y el primer `Entonces`.

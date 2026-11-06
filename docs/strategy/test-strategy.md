@@ -1,8 +1,8 @@
 # Estrategia de Pruebas — Restful-Booker API
 
-**Versión 3.5 · 2026-11-05 · Aprobado · Referencia para la implementación**
+**Versión 3.6 · 2026-11-05 · Aprobado · Referencia para la implementación**
 Requisitos y trazabilidad: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Divergencias: [`known-defects.md`](../known-defects.md) · Arquitectura: [`framework-architecture.md`](../architecture/framework-architecture.md)
-*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21). v3.3: categoría Performance (SLA) y resultados de la verificación de la fase 0. v3.4: sintaxis GPath de D-01 verificada. v3.5: convenciones BDD (§3.1), fase explícita de observación posterior (ADR-22), TC-AUTH-02 en dos escenarios y verificaciones de la fase de escenarios.*
+*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21). v3.3: categoría Performance (SLA) y resultados de la verificación de la fase 0. v3.4: sintaxis GPath de D-01 verificada. v3.5: convenciones BDD (§3.1), fase explícita de observación posterior (ADR-22), TC-AUTH-02 en dos escenarios y verificaciones de la fase de escenarios. v3.6: ruta real del consolidado de limpieza (§4).*
 
 ## 1. Objetivo y alcance
 
@@ -72,7 +72,7 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 | Autenticación | Credenciales desde `RB_USERNAME`/`RB_PASSWORD` (D-05). Un token por actor y por test, inyectado con un `Filter` como `Cookie` |
 | Limpieza | La Task de creación registra cada ID en el contexto del escenario **antes** de cualquier aserción; el hook `@After` de Cucumber lo borra, pase o falle el escenario. Usa su propio token |
 | Propiedad (D-12) | Antes de borrar se hace un `GET`: si da 404, no hay nada que hacer; si el `firstname` coincide, se borra; si no coincide (el ID fue reutilizado, H-03), **no se borra** |
-| Limpieza pendiente (D-08) | No altera el resultado funcional ni genera un resultado de test. Es visible con: un step *broken* y un adjunto en el test afectado; `target/cleanup-pending.json`; un contador en el panel Environment de Allure; un resumen en la consola. **Solo registra `bookingid`, el marcador sintético y el motivo; nunca tokens ni credenciales** |
+| Limpieza pendiente (D-08) | No altera el resultado funcional ni genera un resultado de test. Es visible con: un step *broken* y un adjunto en el test afectado; `target/cleanup/<directorio de resultados>/cleanup-pending.json` (por ejemplo, `target/cleanup/allure-results/` en el job principal); un contador en el panel Environment de Allure; un resumen en la consola. **Solo registra `bookingid`, el marcador sintético y el motivo; nunca tokens ni credenciales** |
 | Registro por escenario | Cada escenario escribe su propio archivo en `target/cleanup/<directorio de resultados>/` (IDs creados y pendientes; un directorio por job). El hook `@AfterAll` lo consolida: no hay estado compartido en memoria entre escenarios en paralelo |
 | Si la JVM muere | Los archivos de `target/cleanup/` conservan los IDs; el reinicio de la API elimina los restos |
 
