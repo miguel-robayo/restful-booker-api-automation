@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Booking (RC-01)",
+  "description": "Contract of GET /booking/{id} per the public API documentation. Every documented field is required with its documented type; no restriction the documentation does not state is added (D-15).",
+  "type": "object",
+  "required": ["firstname", "lastname", "totalprice", "depositpaid", "bookingdates", "additionalneeds"],
+  "properties": {
+    "firstname": { "type": "string" },
+    "lastname": { "type": "string" },
+    "totalprice": { "type": "number" },
+    "depositpaid": { "type": "boolean" },
+    "bookingdates": {
+      "type": "object",
+      "required": ["checkin", "checkout"],
+      "properties": {
+        "checkin": { "type": "string" },
+        "checkout": { "type": "string" }
+      }
+    },
+    "additionalneeds": { "type": "string" }
+  }
+}

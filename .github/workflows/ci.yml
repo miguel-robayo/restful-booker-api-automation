@@ -1,0 +1,145 @@
+# CI for the Restful-Booker API automation framework.
+# Credentials come only from GitHub Secrets (RB_USERNAME, RB_PASSWORD); they are never echoed or stored in artifacts.
+name: API tests
+
+on:
+  push:
+    branches: [main, 'feature/**', 'fix/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: Target environment
+        type: choice
+        options: [qa, dev]
+        default: qa
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TEST_ENV: ${{ inputs.env || 'qa' }}
+  MAVEN_ARGS: -B -ntp
+
+jobs:
+  main:
+    name: Main job (framework tests + scenarios, not @known-defect)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 (Temurin) with Maven cache
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Verify required secrets
+        env:
+          RB_USERNAME: ${{ secrets.RB_USERNAME }}
+          RB_PASSWORD: ${{ secrets.RB_PASSWORD }}
+        run: |
+          missing=""
+          [ -z "$RB_USERNAME" ] && missing="$missing RB_USERNAME"
+          [ -z "$RB_PASSWORD" ] && missing="$missing RB_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error title=Missing secrets::Define these repository secrets:$missing (Settings > Secrets and variables > Actions). Pull requests from forks do not receive secrets."
+            exit 1
+          fi
+
+      - name: Maven Wrapper and Java version
+        run: |
+          chmod +x mvnw
+          ./mvnw -v
+
+      - name: Run tests (env=${{ env.TEST_ENV }})
+        id: tests
+        env:
+          RB_USERNAME: ${{ secrets.RB_USERNAME }}
+          RB_PASSWORD: ${{ secrets.RB_PASSWORD }}
+        run: ./mvnw clean verify -Denv="$TEST_ENV"
+
+      - name: Generate Allure report
+        if: ${{ !cancelled() && hashFiles('target/allure-results/*-result.json') != '' }}
+        run: ./mvnw allure:report
+
+      - name: Test summary
+        if: ${{ !cancelled() }}
+        run: bash .github/scripts/test-summary.sh "Main job" target/surefire-reports target/allure-results
+
+      - name: Upload evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-main-${{ env.TEST_ENV }}-${{ github.run_number }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            target/allure-results/
+            target/site/allure-maven-plugin/
+            target/surefire-reports/
+            target/cleanup/
+
+  known-defects:
+    name: Known defects job (only @known-defect, non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # D-21: these scenarios fail while their KD is open. The real result is kept (red job), but it does not block the workflow.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 (Temurin) with Maven cache
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Verify required secrets
+        env:
+          RB_USERNAME: ${{ secrets.RB_USERNAME }}
+          RB_PASSWORD: ${{ secrets.RB_PASSWORD }}
+        run: |
+          if [ -z "$RB_USERNAME" ] || [ -z "$RB_PASSWORD" ]; then
+            echo "::error title=Missing secrets::Define RB_USERNAME and RB_PASSWORD as repository secrets."
+            exit 1
+          fi
+
+      - name: Run @known-defect scenarios (env=${{ env.TEST_ENV }})
+        env:
+          RB_USERNAME: ${{ secrets.RB_USERNAME }}
+          RB_PASSWORD: ${{ secrets.RB_PASSWORD }}
+        run: |
+          chmod +x mvnw
+          ./mvnw clean test -Pknown-defects -Denv="$TEST_ENV"
+
+      - name: Generate Allure report
+        if: ${{ !cancelled() && hashFiles('target/allure-results-known-defects/*-result.json') != '' }}
+        run: ./mvnw allure:report -Pknown-defects
+
+      - name: Test summary
+        if: ${{ !cancelled() }}
+        run: bash .github/scripts/test-summary.sh "Known defects job" target/surefire-reports-known-defects target/allure-results-known-defects
+
+      - name: Upload evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-known-defects-${{ env.TEST_ENV }}-${{ github.run_number }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            target/allure-results-known-defects/
+            target/site/allure-maven-plugin/
+            target/surefire-reports-known-defects/
+            target/cleanup/

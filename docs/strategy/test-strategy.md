@@ -1,7 +1,8 @@
 # Estrategia de Pruebas — Restful-Booker API
 
-**Versión 3.1 · 2026-11-05 · Aprobado · Referencia para la implementación**
-Requisitos y trazabilidad: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Divergencias: [`known-defects.md`](../known-defects.md)
+**Versión 3.7 · 2026-11-05 · Aprobado · Referencia para la implementación**
+Requisitos y trazabilidad: [`requirements-analysis.md`](../analysis/requirements-analysis.md) · Divergencias: [`known-defects.md`](../known-defects.md) · Arquitectura: [`framework-architecture.md`](../architecture/framework-architecture.md)
+*v3.2: BDD con Cucumber (D-22), D-16 actualizada a un feature por funcionalidad, job separado para `@known-defect` (D-21). v3.3: categoría Performance (SLA) y resultados de la verificación de la fase 0. v3.4: sintaxis GPath de D-01 verificada. v3.5: convenciones BDD (§3.1), fase explícita de observación posterior (ADR-22), TC-AUTH-02 en dos escenarios y verificaciones de la fase de escenarios. v3.6: ruta real del consolidado de limpieza (§4). v3.7: C-5 pasa a verificación automática en `ArchitectureRulesTest`.*
 
 ## 1. Objetivo y alcance
 
@@ -11,18 +12,20 @@ Verificar de forma automatizada, independiente y reproducible los requisitos de 
 
 ## 2. Stack y arquitectura
 
-**Stack:** Java 21 · Maven · JUnit 5 · Rest Assured 5 · Jackson · Lombok · Datafaker · Allure.
+**Stack:** Java 21 · Maven (Wrapper) · Cucumber 7 + Gherkin (español) · JUnit 5 · Rest Assured 5 · Jackson · Lombok · Datafaker · Allure. El detalle está en la [arquitectura](../architecture/framework-architecture.md).
 
 | Capa | Responsabilidad | Regla |
 |---|---|---|
-| Tests (5 clases por escenario + `LifecycleTest` + `FrameworkTest`) | Given/When/Then y aserciones | No conocen URLs, headers ni JSON |
-| Screenplay: `Actor`, *Abilities*, *Tasks*, *Questions* | Intención de negocio: "crear reserva", "autenticarse" | Componen API Objects; no hacen aserciones |
-| API Objects (por recurso: auth, booking) | Endpoint, método, headers y spec | Sin lógica de negocio ni aserciones |
-| Modelos (Lombok `@Builder` + Jackson) | Requests y responses tipados | Sin JSON estático |
-| Datos (`BookingDataFactory`) | Datos válidos y únicos | Una instancia de `Faker` por test |
-| Soporte | Configuración, filtros (token, enmascarado, Allure), extensión de limpieza | Sin estado estático mutable |
+| Features (Gherkin) | Comportamiento esperado en lenguaje de negocio (§3.1) | Sin términos técnicos ni datos técnicos |
+| Step Definitions | Adaptadores delgados hacia el Actor o `Expect` | Sin HTTP directo ni reglas de negocio |
+| Observación posterior (`PostActionObservations` + `@AfterStep`) | Lecturas de evidencia declaradas por el `Cuando` | Solo lecturas; sin aserciones |
+| Screenplay: `Actor`, *Abilities*, *Tasks* (escrituras), *Questions* (lecturas) | Intención de negocio | Sin aserciones |
+| API Objects (auth, booking) | Endpoint, método y parámetros | Sin lógica ni aserciones |
+| `Expect` / `ResponseSpecs` | Aserciones sobre resultados almacenados | Sin peticiones HTTP |
+| Hooks de Cucumber + `ScenarioContext` | Ciclo de vida por escenario: actor, limpieza, verificación del entorno | Único mecanismo; sin estado estático |
+| JUnit 5 | Tests técnicos del framework (FW-01, FW-02) | No usan el Actor |
 
-Los nombres concretos de clases y paquetes se fijan en la fase 0.
+**Regla de pasos (ADR-13, ADR-22):** `Dado` → prepara el contexto y obtiene el estado inicial · `Cuando` → **exactamente una** acción (`attemptsTo` o `asksFor`), que además **declara** la evidencia posterior que necesita · **observación posterior** → el hook `@AfterStep` ejecuta esas lecturas justo después del `Cuando`, visibles en Allure · `Entonces` → `Expect`/`ResponseSpecs` sobre la evidencia almacenada, **sin HTTP**.
 
 ## 3. Enfoque de pruebas
 
@@ -43,6 +46,23 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 - **Seguridad:** control de acceso con verificación del estado (TC-NEG-01/02/04), auth sin falsos positivos (TC-AUTH-01/03), secretos enmascarados (FW-01), URL `https://` obligatoria (FW-02).
 - **Rendimiento (D-11):** el SLA es una **aserción de requisito no funcional** con umbral configurable (2000 ms por defecto) y **sin reintentos**. Se identifica con el prefijo `SLA:` y la etiqueta `performance`. Se mide del lado del cliente, por eso se reporta el tiempo real.
 
+### 3.1 Redacción BDD y fases de un escenario
+
+| ID | Convención | Verificación automática |
+|---|---|---|
+| C-1 | **Fases:** `Dado` prepara el contexto y el estado inicial · `Cuando` ejecuta **solo** la acción principal y declara la evidencia posterior · **observación posterior** (`@AfterStep`, visible en Allure) · `Entonces` valida la evidencia sin HTTP (ADR-13, ADR-22) | `ArchitectureRulesTest`: un `Cuando` = exactamente una acción HTTP; un `Entonces` = ninguna |
+| C-2 | Los códigos HTTP no aparecen en el Gherkin: son constantes con nombre en Java (`HttpStatus`). Los valores esperados no cambian | `FeatureConventionsTest`: ningún código de 3 cifras |
+| C-3 | Lenguaje de negocio: sin token, HTTP, JSON, schema, GPath, SLA, Builder, cabeceras… Las notas técnicas de cada escenario viven en esta estrategia (§7, "Notas técnicas") | `FeatureConventionsTest` (títulos, pasos y comentarios) |
+| C-4 | Un único actor, **Miguel**, presentado en el primer `Dado` que se ejecuta (el de `Antecedentes` si existe, si no el del escenario); después se omite el sujeto | `FeatureConventionsTest` (sobre los pasos efectivos: antecedentes de la característica + de la regla + del escenario) |
+| C-5 | Métodos Java: verbo imperativo para `Dado`/`Cuando` (`registerBooking`) y `verify…` para `Entonces` | `ArchitectureRulesTest`: los métodos `@Entonces` empiezan por `verify`; los `@Dado`/`@Cuando`, no. Que sea un verbo imperativo, por revisión |
+| C-6 | Un único `Cuando` por escenario (un `Y` después del `Cuando` también es acción) y etiquetas `@TC-*` + `@esc-*` en todos | `FeatureConventionsTest` |
+| C-7 | **`Antecedentes`** solo para precondiciones de negocio comunes a **todos** los escenarios de su característica o regla: únicamente `Dado`/`Y`, máximo 4 pasos, nunca la acción ni resultados. Se ejecutan antes de cada escenario, por lo que cada uno sigue creando sus propios datos y su propia sesión. No se usan si los contextos difieren ni solo para ahorrar líneas | `FeatureConventionsTest` (solo contexto, máximo 4 pasos); el resto, revisión |
+| C-8 | **`Regla`** agrupa escenarios que son ejemplos de una misma regla de negocio, y puede tener sus propios `Antecedentes`; no se usa como agrupador decorativo. **`Esquema del escenario`** solo cuando cambian únicamente los datos y no el comportamiento; cada `@TC-*` conserva su escenario | Revisión |
+
+**Vocabulario de negocio ↔ implementación** (documentado para no inventar reglas): "iniciar sesión" = obtener el token de `POST /auth`; "sesión" = ese token; "cancelar" = `DELETE`, que **elimina** la reserva (no existe un estado "cancelada"), por eso el resultado se expresa como "deja de estar disponible"; "credenciales de acceso válidas" = las configuradas (no hay registro de usuarios); "valor de referencia" = `query.price.threshold`; "tiempo máximo acordado" = `sla.booking.get.ms`; "formato y codificación acordados" = `Content-Type: application/json; charset=utf-8`.
+
+**Por qué existe la observación posterior:** un escenario negativo necesita leer la reserva **después** de la acción para probar que quedó intacta. Un `Y` después del `Cuando` sería otra acción; leer dentro del `Cuando` escondería una segunda operación; leer en el `Entonces` rompería ADR-13; no leer debilitaría la comprobación. La observación declarada por el `Cuando` y ejecutada por el hook es la única opción que respeta las cuatro reglas.
+
 ## 4. Datos, autenticación y limpieza
 
 | Tema | Estrategia |
@@ -50,10 +70,11 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 | Aislamiento | Cada test crea sus propios datos. `firstname` = nombre generado + sufijo único (el filtro es exacto, H-02). Sin IDs fijos salvo `9999999` (D-13) |
 | Generación | Datafaker (D-04; JavaFaker no tiene mantenimiento y arrastra una dependencia vulnerable). Precio de 1 a 10 000; `checkout` posterior a `checkin`; todos los campos de RC-01. Semilla en el reporte |
 | Autenticación | Credenciales desde `RB_USERNAME`/`RB_PASSWORD` (D-05). Un token por actor y por test, inyectado con un `Filter` como `Cookie` |
-| Limpieza | Una extensión de JUnit registra cada ID **antes** de cualquier aserción y lo borra en `afterEach`, pase o falle el test. Usa su propio token |
+| Limpieza | La Task de creación registra cada ID en el contexto del escenario **antes** de cualquier aserción; el hook `@After` de Cucumber lo borra, pase o falle el escenario. Usa su propio token |
 | Propiedad (D-12) | Antes de borrar se hace un `GET`: si da 404, no hay nada que hacer; si el `firstname` coincide, se borra; si no coincide (el ID fue reutilizado, H-03), **no se borra** |
-| Limpieza pendiente (D-08) | No altera el resultado funcional ni genera un resultado de test. Es visible con: un step *broken* y un adjunto en el test afectado; `target/cleanup-pending.json`; un contador en el panel Environment de Allure; un resumen en la consola. **Solo registra `bookingid`, el marcador sintético y el motivo; nunca tokens ni credenciales** |
-| Si la JVM muere | Los IDs quedan en `target/created-bookings.log`; el reinicio de la API elimina los restos |
+| Limpieza pendiente (D-08) | No altera el resultado funcional ni genera un resultado de test. Es visible con: un step *broken* y un adjunto en el test afectado; `target/cleanup/<directorio de resultados>/cleanup-pending.json` (por ejemplo, `target/cleanup/allure-results/` en el job principal); un contador en el panel Environment de Allure; un resumen en la consola. **Solo registra `bookingid`, el marcador sintético y el motivo; nunca tokens ni credenciales** |
+| Registro por escenario | Cada escenario escribe su propio archivo en `target/cleanup/<directorio de resultados>/` (IDs creados y pendientes; un directorio por job). El hook `@AfterAll` lo consolida: no hay estado compartido en memoria entre escenarios en paralelo |
+| Si la JVM muere | Los archivos de `target/cleanup/` conservan los IDs; el reinicio de la API elimina los restos |
 
 ## 5. Ejecución
 
@@ -61,33 +82,58 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 |---|---|
 | Ambientes (D-14) | `-Denv=dev\|qa` (`qa` por defecto); todos apuntan a la API pública |
 | Configuración | Precedencia: `-D` > variable de entorno > `<env>.properties` > `default.properties`. Fail-fast ante un ambiente desconocido, una credencial ausente o una URL que no sea `https` |
-| Paralelismo (D-10) | JUnit 5 concurrente, 4 hilos configurables. **Prohibido** escribir en `RestAssured.*` estático: se crea una spec nueva por petición. Actor, token, filtros y `Faker` son de cada test |
+| Paralelismo (D-10) | Cucumber en paralelo sobre JUnit Platform, 4 hilos configurables; cada escenario tiene su propio `ScenarioContext` (PicoContainer). **Prohibido** escribir en `RestAssured.*` estático: se crea una spec nueva por petición. Actor, token, filtros y `Faker` son de cada escenario |
+| Jobs (D-21) | **Principal:** `mvn clean test` → FW + escenarios `not @known-defect`. **Defectos conocidos:** `mvn test -Pknown-defects` → solo la suite de Cucumber con `@known-defect`, con directorios Allure y Surefire propios. Su resultado real se conserva y nunca se cuenta como exitoso en el principal |
 | Independencia | Se demuestra con orden aleatorio (semilla en el log), cada clase ejecutada sola, la suite ejecutada dos veces y en modo paralelo y secuencial |
 | Entorno | `GET /ping` (RC-07) antes de ejecutar; si falla, la ejecución se aborta como Infrastructure |
 | Reintentos | Ninguno |
 
 ## 6. Resultados y defectos en Allure
 
-**Evidencia por test:** request y response con los secretos enmascarados · steps de Screenplay · etiquetas (`requested`/`proposed`, escenario, `known-defect`, `performance`) · `@Issue("KD-xx")` cuando aplica · tiempos · IDs creados y su limpieza.
+**Evidencia por escenario** (adaptador único `allure-cucumber7-jvm`): pasos Gherkin con las Tasks y Questions anidadas · request y response con los secretos enmascarados · etiquetas (`@TC-xx`, `@esc-N`, `@requested`/`@proposed`, `@req`/`@kd-monitor`/`@known-defect`, funcionales) · `@issue=KD-xx` cuando aplica (verificado: Allure lo muestra como enlace de tipo *issue* hacia `known-defects.md`, gracias a `allure.link.issue.pattern`) · tiempos · IDs creados y su limpieza. FW-01 y FW-02 se reportan en Surefire.
 
-**Categorías de Allure (D-03; las cinco aprobadas, sin una sexta):**
+**Categorías de Allure (D-03):**
 
 | Categoría | Estado | Clasificación | Acción |
 |---|---|---|---|
 | **Product Defect** | failed | Aserción REQ **funcional** fallida, sin KD registrado (sin prefijo `KD-xx:` ni `SLA:`) | Analizar y registrar el defecto |
+| **Performance (SLA)** | failed | Prefijo `SLA:`: requisito **no funcional** de rendimiento incumplido | Revisar el tiempo medido frente al umbral; no es un defecto funcional |
 | **Known Defect** | failed | Prefijo `KD-xx:`: un REQ que incumple un KD abierto, o un MON cuyo comportamiento observado cambió | Consultar y actualizar `known-defects.md` |
 | **Precondition** | broken | `PreconditionFailedException` (prefijo `PRECONDITION:`) (D-09) | Revisar la capacidad base (`/auth`, `POST /booking`) |
 | **Infrastructure** | broken | Conexión, TLS, DNS, timeout o `/ping` caído (prefijo `INFRA:`) | Reintentar la ejecución completa más tarde |
 | **Test Defect** | broken | Cualquier otro error | Corregir el framework |
 
-**Performance/SLA (requisito no funcional):** un fallo de SLA **no es un fallo funcional**, así que queda **excluido** de Product Defect por su prefijo `SLA:`. Se identifica por el prefijo `SLA:` y la etiqueta `performance`, no por una categoría propia.
+**Por qué seis categorías (v3.3):** la verificación de la fase 0 mostró que, con cinco, Allure envía un fallo `SLA:` a su categoría interna *"Product defects"*, con un nombre casi idéntico al de los defectos funcionales. La categoría explícita **Performance (SLA)** lo separa (aprobada como A1); además lleva la etiqueta `performance`.
 
-**Limitaciones sin verificar todavía:**
-- **No está comprobado** cómo presenta Allure un failed que no coincide con ninguna categoría (el fallo de SLA). Hasta verificarlo en una ejecución real, la forma garantizada de localizarlo es filtrar por la etiqueta `performance` o por el prefijo `SLA:`.
-- También queda por comprobar la diferencia broken/failed y el orden y la exclusividad de las reglas.
-- Si una reserva desaparece por un reinicio de la API a mitad de un test, el 404 resultante cae en Product Defect y requiere revisión manual.
+**Verificado en la fase 0** (ejecución real con escenarios de prueba): AssertionError → failed y cualquier otra excepción → broken; `PRECONDITION:` → Precondition; `INFRA:` y `ConnectException` → Infrastructure; cada escenario en exactamente una categoría y ninguno sin categoría.
+
+**Limitación:** si una reserva desaparece por un reinicio de la API a mitad de un test, el 404 resultante cae en Product Defect y requiere revisión manual.
 
 ## 7. Matriz de escenarios
+
+**Distribución (D-16):** un feature por funcionalidad. La trazabilidad con el documento de la prueba se mantiene con las etiquetas `@TC-xx` y `@esc-N`.
+
+| Feature | Escenarios |
+|---|---|
+| `authentication.feature` | TC-AUTH-01, TC-AUTH-02, TC-AUTH-03, TC-NEG-01, TC-NEG-02, TC-NEG-04 |
+| `booking_creation.feature` | TC-CRE-01, TC-CON-04 |
+| `booking_queries.feature` | TC-QRY-01, TC-QRY-02, TC-QRY-03, TC-QRY-04, TC-NEG-03 |
+| `booking_validation.feature` | TC-CON-01, TC-CON-02, TC-CON-03, TC-CRE-02, TC-NEG-05, TC-NEG-06, TC-NEG-07, TC-NEG-08 |
+| `booking_lifecycle.feature` | TC-INT-01 |
+| JUnit 5 (`framework/`) | FW-01, FW-02 |
+
+**TC-AUTH-02 = dos escenarios del mismo requisito** (C-6 obliga a un único `Cuando`): "Modificar una reserva después de iniciar sesión" (modificación confirmada y persistida) y "Cancelar una reserva modificada sin volver a iniciar sesión" (cancelación, misma sesión en la modificación y en la cancelación, un solo inicio de sesión). Ambos llevan `@TC-AUTH-02` y son **independientes**: cada uno inicia su propia sesión y crea su propia reserva. No duplican cobertura: reparten las comprobaciones del requisito. Por eso la suite tiene **11 escenarios de Cucumber para 10 TC solicitados**.
+
+**Notas técnicas de los escenarios implementados** (salieron de los features por C-3):
+
+| TC | Nota |
+|---|---|
+| TC-AUTH-02 | La misma sesión se prueba comparando la huella SHA-256 de la cabecera `Cookie` realmente enviada en el `PUT` y en el `DELETE` con la del token obtenido (ADR-23); además, un solo `POST /auth` |
+| TC-NEG-02 | Un token caducado no se puede generar (RF-11, D-07): se usa un token generado que la API nunca emitió |
+| TC-QRY-01 | `GET /booking` solo devuelve `bookingid` (H-01, C-01). La búsqueda por nombre único es la acción; los detalles reales, la selección GPath (`findAll { it.booking.totalprice > T }`, valor límite excluido) y el detalle de la reserva identificada son observaciones posteriores (D-01). No se simula ningún dato |
+| TC-NEG-03 | El ID configurado (`9999999`) solo se usa si es mayor que el ID más alto existente (`GET /booking`, GPath `bookingid.max()`); si no, Precondition |
+| TC-CON-02 | Alcance: un `GET /booking/{id}`, tiempo del lado del cliente medido por Rest Assured; umbral estrictamente menor que `sla.booking.get.ms`; el tiempo real se adjunta antes de comparar |
+| TC-CON-03 | RNF-06 pide headers "de seguridad o servidor": no hay headers de seguridad (KD-06), así que `Server` se valida como cabecera técnica (presencia, no valor) |
 
 **Fuente del esperado:** [D] = documento de la prueba · [A] = documentación de la API.
 
@@ -135,18 +181,23 @@ La clasificación depende del requisito, **no** de lo que hace la API: un escena
 
 | Tema | Decisiones | Justificación |
 |---|---|---|
-| Alcance y fuentes | **D-02** 24 escenarios (10 + 14) · **D-16** una clase por escenario del documento · **D-17** [DOC] > [API-DOC] > [OBS] | Trazabilidad directa; lo observado nunca se convierte en requisito |
+| Alcance y fuentes | **D-02** 24 escenarios (10 + 14) · **D-16** un feature por funcionalidad, con `@TC-xx` y `@esc-N` (actualizada en v3.2; antes: una clase por escenario del documento) · **D-17** [DOC] > [API-DOC] > [OBS] · **D-22** BDD con Cucumber y Gherkin en español; código en inglés | Trazabilidad por etiquetas; lo observado nunca se convierte en requisito; escenarios legibles para la exposición |
 | Escenario 3 | **D-01** GPath sobre la colección de detalles de las reservas propias | `GET /booking` no devuelve `totalprice` (C-01); los datos propios lo hacen determinista |
-| Aserciones y defectos | **D-03** REQ/MON (clasificados por requisito, no por lo observado) + 5 categorías · **D-18** registro versionado · **D-15** schema sin restricciones no documentadas · **D-19** filtros combinados · **D-20** rechazo sin código · **D-06** headers de seguridad como hallazgo · **D-07** token caducado no automatizable | Distinguir defectos nuevos de los conocidos sin ocultar ninguno, y sin afirmar más de lo que dicen las fuentes |
+| Aserciones y defectos | **D-03** REQ/MON (clasificados por requisito, no por lo observado) + 6 categorías (Performance (SLA) agregada en v3.3) · **D-18** registro versionado · **D-15** schema sin restricciones no documentadas · **D-19** filtros combinados · **D-20** rechazo sin código · **D-06** headers de seguridad como hallazgo · **D-07** token caducado no automatizable | Distinguir defectos nuevos de los conocidos sin ocultar ninguno, y sin afirmar más de lo que dicen las fuentes |
 | Datos y autenticación | **D-04** Datafaker · **D-05** credenciales por el entorno · **D-12** propiedad antes de borrar · **D-08** limpieza con visibilidad propia · **D-13** ID `9999999` | Seguridad, aislamiento y protección de datos ajenos |
-| Ejecución | **D-09** precondición = broken · **D-10** paralelo con 4 hilos · **D-11** SLA configurable sin reintentos · **D-14** ambientes `dev`/`qa` | Diagnóstico claro, sin falsos verdes y respetando una API compartida |
+| Ejecución | **D-09** precondición = broken · **D-10** paralelo con 4 hilos · **D-11** SLA configurable sin reintentos · **D-14** ambientes `dev`/`qa` · **D-21** `@known-defect` en un job separado, con resultados propios | Diagnóstico claro, sin falsos verdes y respetando una API compartida; el job principal no queda en rojo por defectos ya registrados, que siguen visibles |
 
-## 10. Pendientes de verificar con una ejecución real
+## 10. Verificaciones con ejecución real
 
-| Ítem | Cuándo |
+| Ítem | Estado |
 |---|---|
-| Propagación de `-Denv`/`-D` a Surefire y resolución de la configuración | Fase 0 |
-| Sintaxis GPath (D-01) y semántica del filtro `checkin` (TC-QRY-04) | Al implementar cada escenario |
-| Estados broken/failed, reglas de las categorías, presentación de un failed de SLA fuera de las categorías, step broken dentro de un test aprobado y panel Environment | Primera ejecución con Allure |
-
-**Pendiente de decisión:** TC-CRE-02 y TC-NEG-08 (REQ con KD-07 y KD-05 abiertos) fallarán en cada ejecución hasta que se corrija la API. Falta definir si la ejecución por defecto (la que decide si el build es verde) los incluye o los excluye por la etiqueta `known-defect`, ejecutándolos en un job aparte.
+| Propagación de `-Denv`/`-D` a Surefire y resolución de la configuración | ✅ Fase 0 |
+| Compatibilidad `allure-cucumber7-jvm` + Cucumber 7.34.9; un resultado de Allure por escenario; filtrado por etiquetas a través de `@Suite`; `@issue=KD-xx` | ✅ Fase 0 |
+| Estados broken/failed y categorías (incluido el SLA) | ✅ Fase 0 |
+| `@BeforeAll` una sola vez; un contexto por escenario en paralelo; `@After` tras un paso fallido | ✅ Fase 0 |
+| Job `-Pknown-defects`: solo `@known-defect`, sin FW, con directorios propios y resultado real | ✅ Fase 0 |
+| Sintaxis GPath de D-01 (`findAll { it.<campo> > T }.<id>` con el `JsonPath` de Rest Assured 5.5.7) | ✅ Verificada: devuelve exactamente los IDs por encima del umbral, con el valor límite excluido |
+| Semántica del filtro `checkin` (TC-QRY-04) | Al implementar el escenario (ronda de escenarios propuestos) |
+| Step broken de limpieza pendiente dentro de un escenario aprobado y panel Environment (D-08) | ✅ Ejecución forzada: escenario aprobado, step "Data cleanup pending" broken con adjunto, `cleanup.pending.count=1` |
+| Consolidación concurrente de la limpieza; ausencia de condiciones de carrera | ✅ 4 ejecuciones en paralelo: 0 pendientes, IDs y marcadores únicos, un token por inicio de sesión |
+| Observación posterior (ADR-22) | ✅ Visible en Allure, justo después del `Cuando` y antes del primer `Entonces`, en los 5 escenarios que la usan |
