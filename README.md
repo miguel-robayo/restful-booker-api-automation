@@ -1,7 +1,5 @@
 # Restful-Booker API Automation
 
-[![API tests](https://github.com/miguel-robayo/restful-booker-api-automation/actions/workflows/ci.yml/badge.svg)](https://github.com/miguel-robayo/restful-booker-api-automation/actions/workflows/ci.yml)
-
 Framework de automatización de la API REST pública [Restful-Booker](https://restful-booker.herokuapp.com/apidoc/index.html), construido con **Java 21, Maven, Rest Assured 5, Cucumber 7 (Gherkin en español), Screenplay propio, API Objects y Allure 2**.
 
 Cubre los **cinco escenarios** del documento de la prueba técnica (11 escenarios de Cucumber) y **93 tests técnicos** del propio framework (JUnit 5, sin red).
@@ -10,7 +8,8 @@ Cubre los **cinco escenarios** del documento de la prueba técnica (11 escenario
 |---|---|
 | Estado | ✅ 104/104 tests en verde contra la API real (`-Denv=qa`, 2026-11-05) · [evidencias](docs/delivery/execution-evidence.md) |
 | Escenarios | [Documentación de los cinco escenarios](docs/delivery/scenarios.md) |
-| CI | [Pipeline de GitHub Actions](docs/delivery/ci-pipeline.md) |
+| Reporte | [Allure](#8-reportes-allure), con capturas del reporte real |
+| CI (opcional) | [Pipeline de GitHub Actions](docs/delivery/ci-pipeline.md), preparado y sin activar: no es un requisito de la prueba |
 
 ---
 
@@ -238,6 +237,12 @@ Cada ejecución escribe los resultados en `target/allure-results` (job de defect
 
 Los tests técnicos (FW) se reportan en `target/surefire-reports`, no en Allure (ADR-16).
 
+**Reporte real de la ejecución final** (más capturas en [`execution-evidence.md`](docs/delivery/execution-evidence.md) §4):
+
+![Allure — vista general](docs/delivery/evidence/allure-overview.png)
+
+![Allure — detalle de un escenario](docs/delivery/evidence/allure-scenario-detail.png)
+
 ## 9. Los cinco escenarios
 
 | # | Escenario del documento | Feature | Casos | Etiqueta |
@@ -251,6 +256,8 @@ Los tests técnicos (FW) se reportan en `target/surefire-reports`, no en Allure 
 Objetivo, pasos, resultado esperado, requisitos y comando de cada uno: [`docs/delivery/scenarios.md`](docs/delivery/scenarios.md).
 
 ## 10. Pipeline de GitHub Actions
+
+> **Opcional, preparado y sin activar.** Ningún requisito de la prueba exige CI. El workflow se entrega listo; se activa creando los secretos indicados abajo.
 
 Archivo: [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Se ejecuta con `push` a `main`, `feature/**` y `fix/**`, con `pull_request` a `main` y manualmente (`workflow_dispatch`, eligiendo `qa` o `dev`).
 
@@ -278,8 +285,9 @@ Ejecución real del 2026-11-05 con JDK 21.0.13 y Maven 3.9.14 contra la API púb
 | `mvn allure:report` / `mvn allure:serve` | ✅ 11 escenarios *passed* · servidor local iniciado |
 | `./mvnw clean verify -Denv=qa` (comando del CI) | ✅ 104/104 · BUILD SUCCESS |
 | Fallo forzado (`-Dsla.booking.get.ms=1`) | ✅ exit 1 · BUILD FAILURE · categoría *Performance (SLA)* |
+| Incidencia real: timeout de la API pública en una ejecución | ⚠️ 1 *broken* clasificado como *Infrastructure*; se repitió la ejecución y dio 104/104 |
 
-Salidas, tabla por escenario, revisión de secretos y limitaciones: [`docs/delivery/execution-evidence.md`](docs/delivery/execution-evidence.md).
+Salidas, tabla por escenario, capturas de Allure, incidencia, revisión de secretos y limitaciones: [`docs/delivery/execution-evidence.md`](docs/delivery/execution-evidence.md).
 
 ## 12. Solución de problemas
 

@@ -2,6 +2,8 @@
 
 **Entrega técnica · 2026-11-05** · Workflow: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) · Resumen: [`.github/scripts/test-summary.sh`](../../.github/scripts/test-summary.sh)
 
+> **Estado: preparado, opcional y sin activar.** Ningún requisito de la prueba exige CI ([`requirements-analysis.md`](../analysis/requirements-analysis.md) no lo incluye entre los RF, RC o RNF). El workflow se entrega listo para activarse; no está habilitado porque el repositorio no tiene secretos (§6).
+
 ## 1. Disparadores
 
 | Evento | Alcance |
@@ -57,7 +59,7 @@ flowchart LR
 | `known-defects` | `continue-on-error: true`: sus escenarios fallan mientras el KD siga abierto. El job conserva su resultado real (rojo) sin bloquear el workflow, y nunca se cuenta como éxito del principal (D-21) |
 | Cancelación o `timeout-minutes: 30` | Run cancelado; no se suben artifacts parciales |
 
-Verificado en local con un fallo forzado (`-Dsla.booking.get.ms=1`): exit 1, `BUILD FAILURE`, resumen con ❌ y el mensaje `SLA: … took 241 ms; required < 1 ms`, y categoría Allure *Performance (SLA)*. Ver [`execution-evidence.md`](execution-evidence.md) §5.
+Verificado en local con un fallo forzado (`-Dsla.booking.get.ms=1`): exit 1, `BUILD FAILURE`, resumen con ❌ y el mensaje `SLA: … took 241 ms; required < 1 ms`, y categoría Allure *Performance (SLA)*. Ver [`execution-evidence.md`](execution-evidence.md) §6.
 
 ## 5. Artifacts
 
@@ -78,4 +80,6 @@ El HTML no se abre bien con `file://` porque el navegador bloquea sus peticiones
 - El pipeline **no** publica el reporte (GitHub Pages) ni despliega nada. Para publicarlo bastaría con un job adicional con `actions/deploy-pages` y permisos `pages: write`, fuera del alcance de esta entrega.
 - Hoy no hay escenarios `@known-defect` implementados (pertenecen a la ronda de casos propuestos). El job `known-defects` termina en verde con 11 escenarios omitidos y sin resultados Allure; el paso de reporte se omite. Verificado en local.
 - La API es pública y compartida: un *cold start* de Heroku puede hacer fallar el SLA (TC-CON-02). Se reporta como *Performance (SLA)*, sin reintentos, por diseño (D-11).
-- El workflow está validado como YAML y sus comandos se ejecutaron en local. Todavía **no** se ha ejecutado en GitHub: esta entrega no incluye push. La primera ejecución real ocurrirá con el próximo push autorizado.
+- **CI no es un requisito de la prueba**, así que el pipeline queda preparado pero sin activar. Se validó como YAML y todos sus comandos se ejecutaron en local con resultado real ([`execution-evidence.md`](execution-evidence.md)).
+- Su único run en GitHub, disparado por el push de la rama, se detuvo como estaba previsto en *Verify required secrets*, porque el repositorio no tiene `RB_USERNAME` ni `RB_PASSWORD`. Ese paso funcionó como fail-fast. Mientras no existan los secretos, cada push a `main`, `feature/**` o `fix/**` terminará igual.
+- **Para activarlo:** crea los dos secretos (§3) y relanza el run desde *Actions*, o haz un nuevo push.
